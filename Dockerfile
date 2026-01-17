@@ -43,10 +43,14 @@ RUN bash -c "echo 'Port 2222' >> /etc/ssh/sshd_config"
 RUN mkdir -p /etc/sysctl.d && \
     echo -e "fs.inotify.max_user_watches=1048576\nfs.inotify.max_user_instances=512" > /etc/sysctl.d/90-wsl-inotify.conf
 
-# Create eda user and add to sudo group
+# Install Docker
+RUN curl -sL https://containerlab.dev/setup | bash -s "install-docker"
+
+# Create eda user and add to sudo and docker groups
 RUN useradd -m -s /bin/zsh eda && \
     echo "eda:eda" | chpasswd && \
     adduser eda sudo && \
+    adduser eda docker && \
     echo "eda ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/eda && \
     chmod 0440 /etc/sudoers.d/eda
 
