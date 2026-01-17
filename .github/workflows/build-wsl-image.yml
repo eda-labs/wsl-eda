@@ -1,168 +1,39 @@
-name: Check, Build & Publish WSL2 Image
+name: Build & Publish WSL2 Image
 
 on:
-  # Nightly check at 00:00 UTC
-  schedule:
-    - cron: '0 0 * * *'
-  # Manual “Run workflow” button
-  workflow_dispatch:
-  # When you click “Publish release” in the UI
   release:
     types: [published]
 
 permissions:
-  contents: write     # required for tag push & gh‑release
+  contents: write
 
 jobs:
-# ------------------------------------------------------------
-# 1. Decide whether we need a new release tag
-#    (runs on schedule or workflow‑dispatch, never on release)
-# ------------------------------------------------------------
-  check-and-release:
-    if: github.event_name != 'release'
-    runs-on: ubuntu-latest
-    outputs:
-      NEED_RELEASE: ${{ steps.decide.outputs.NEED_RELEASE }}
-      NEW_TAG:      ${{ steps.decide.outputs.NEW_TAG }}
-    steps:
-      - name: Checkout repository ⚡
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0           # get full history
-          fetch-tags:  true        # still unreliable; we force‑fetch below
-
-      - name: Ensure ALL tags are present
-        run: git fetch --tags --prune --force
-
-      - name: Get latest EDA version
-        id: eda
-        shell: bash
-        run: |
-          set -euo pipefail
-          latest_url=$(curl -sLI -o /dev/null -w '%{url_effective}' \
-                       https://github.com/eda-labs/eda/releases/latest)
-          ver=${latest_url##*/}
-          echo "EDA_VER=${ver#v}" >> "$GITHUB_OUTPUT"
-          echo "Found EDA ${ver#v}"
-
-      - name: Get latest WSL image tag
-        id: current
-        shell: bash
-        run: |
-          set -euo pipefail
-          tag=$(git tag --list --sort=-v:refname | head -n1 || true)
-          echo "LATEST_TAG=$tag" >> "$GITHUB_OUTPUT"
-
-          if [[ -z "$tag" ]]; then
-            echo "EDA_CUR=none"  >> "$GITHUB_OUTPUT"
-            echo "WSL_CUR=none"           >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "Latest tag is $tag"
-
-          echo "EDA_CUR=${tag%%-*}" >> "$GITHUB_OUTPUT"
-          echo "WSL_CUR=${tag#*-}"           >> "$GITHUB_OUTPUT"
-
-      - name: Decide whether to cut a new tag
-        id: decide
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          need_release="false"
-          new_eda="${{ steps.eda.outputs.EDA_VER }}"
-          cur_eda="${{ steps.current.outputs.EDA_CUR }}"
-          cur_wsl="${{ steps.current.outputs.WSL_CUR }}"
-          new_wsl="1.0"
-
-          bump_wsl () {
-            local major=${cur_wsl%%.*}
-            local minor=${cur_wsl#*.}
-            new_wsl="${major}.$((minor+1))"
-          }
-
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            need_release="true"
-            [[ "$cur_eda" == "$new_eda" && "$cur_wsl" != "none" ]] && bump_wsl
-          elif [[ "$cur_eda" == "none" ]]; then
-            need_release="true"
-          elif [[ "$cur_eda" != "$new_eda" ]]; then
-            need_release="true"
-          fi
-
-          echo "NEED_RELEASE=$need_release" >> "$GITHUB_OUTPUT"
-
-          if [[ "$need_release" == "true" ]]; then
-            new_tag="${new_eda}-${new_wsl}"
-            echo "NEW_TAG=$new_tag" >> "$GITHUB_OUTPUT"
-            echo "Releasing $new_tag"
-          else
-            echo "No release required"
-          fi
-
-      - name: Create Git tag
-        if: steps.decide.outputs.NEED_RELEASE == 'true'
-        run: |
-          git config --local user.email "github-actions@github.com"
-          git config --local user.name  "GitHub Actions"
-          git tag -a "${{ steps.decide.outputs.NEW_TAG }}" \
-            -m "Release ${{ steps.decide.outputs.NEW_TAG }}"
-          git push origin "${{ steps.decide.outputs.NEW_TAG }}"
-
-      - name: Draft GitHub Release
-        if: steps.decide.outputs.NEED_RELEASE == 'true'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.decide.outputs.NEW_TAG }}
-          name: "Release ${{ steps.decide.outputs.NEW_TAG }}"
-          body: |
-            WSL2 image for EDA ${{ steps.eda.outputs.EDA_VER }}
-
-            ${{ github.event_name == 'workflow_dispatch' && 'Manually triggered.' || 'Automated nightly release.' }}
-          draft: false
-          prerelease: false
-
-# ------------------------------------------------------------
-# 2. Build & upload WSL image when we *have* a tag
-# ------------------------------------------------------------
   build-and-publish:
-    needs: check-and-release
-    if: needs.check-and-release.outputs.NEED_RELEASE == 'true' || github.event_name == 'release'
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: docker/setup-buildx-action@v2
+      - uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
         run: docker build . -t eda-wsl-debian
 
-      - name: Export container filesystem ➜ .wsl
+      - name: Export container filesystem to .wsl
         run: |
           docker run -t --name wsl_export eda-wsl-debian ls /
-          docker export  wsl_export -o eda.tar
-          docker rm      wsl_export
-          mv eda.tar    eda.wsl
+          docker export wsl_export -o eda.tar
+          docker rm wsl_export
+          mv eda.tar eda.wsl
 
       - uses: actions/upload-artifact@v4
         with:
           name: eda-wsl2
           path: eda.wsl
 
-      - name: Determine tag name
-        id: tag
-        run: |
-          if [[ "${{ github.event_name }}" == "release" ]]; then
-            echo "TAG=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
-          else
-            echo "TAG=${{ needs.check-and-release.outputs.NEW_TAG }}" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Upload release asset
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: eda.wsl
-          asset_name: eda-${{ steps.tag.outputs.TAG }}.wsl
-          tag: ${{ steps.tag.outputs.TAG }}
+          asset_name: eda-${{ github.ref_name }}.wsl
+          tag: ${{ github.ref_name }}
