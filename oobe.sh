@@ -5,19 +5,18 @@ function import_corporate_certs {
 
     # Export Windows root certificates that might be from Zscaler/corporate CA
     TMP_CERT_DIR=$(mktemp -d)
+    WIN_TMP_CERT_DIR_PATH=$(wslpath -w $TMP_CERT_DIR)
 
     # Export certificates from Windows cert store (Root and CA stores)
     powershell.exe -NoProfile -Command '
-        $certs = Get-ChildItem -Path Cert:\LocalMachine\Root, Cert:\LocalMachine\CA |
-            Where-Object { $_.Subject -match "Zscaler" -or $_.Issuer -match "Zscaler" }
+        $outDir = "'$WIN_TMP_CERT_DIR_PATH'"
+        $certs = Get-ChildItem -Path Cert:\* -Recurse | Where-Object { $_.Subject -like "*Zscaler Root*" }
         foreach ($cert in $certs) {
-            $fileName = $cert.Thumbprint + ".crt"
-            $certPath = "'"$TMP_CERT_DIR"'\" + $fileName
-            $certBytes = $cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
-            [System.IO.File]::WriteAllBytes($certPath, $certBytes)
-            Write-Host "Exported: $($cert.Subject)"
+            $thumbprint = $cert.Thumbprint
+            $certExportPath =  "$outDir\" + $thumbprint + ".crt"
+            Get-ChildItem -Path Cert:\LocalMachine\Root\ | Where-Object{$_.Thumbprint -eq $thumbprint} | Export-Certificate -Type cer -FilePath "$certExportPath" | out-null
         }
-    ' 2>/dev/null
+    '
 
     # Convert paths and install certificates
     CERT_COUNT=0
