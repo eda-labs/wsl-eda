@@ -187,11 +187,7 @@ if ! curl -fsSL --connect-timeout 5 https://github.com -o /dev/null 2>&1; then
     echo -e "\nIt seems we couldn't connect to the internet directly."
     echo -e "This could be due to a proxy or SSL inspection (e.g., Zscaler).\n"
 
-    read -p "Would you like to import corporate/Zscaler certificates? (Y/n) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
         import_corporate_certs
-    fi
 
     prompt_proxy
 fi
