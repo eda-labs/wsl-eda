@@ -76,25 +76,21 @@ function import_corporate_certs {
 }
 
 function install_fonts {
-    echo -e "\033[34m\nInstalling Nerd Font...\033[0m"
+    echo -e "\033[34mInstalling Nerd Font...\033[0m"
 
-    FONT_NAME_PATTERN='FiraCode Nerd Font*'
-
+    # Check if font is already installed (user or system)
     FONT_CHECK=$(powershell.exe -NoProfile -Command '
-        Add-Type -AssemblyName System.Drawing
-        $fonts = [System.Drawing.Text.InstalledFontCollection]::new().Families
-        $fontNamePattern = "'"$FONT_NAME_PATTERN"'"
-        $found = $fonts | Where-Object { $_.Name -like $fontNamePattern } | Select-Object -First 1
-        if ($found) { "yes" } else { "no" }
-    ')
+        $userFonts = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
+        if (Test-Path "$userFonts\FiraCodeNerdFont*.ttf") { "yes" }
+        elseif (Test-Path "$env:WINDIR\Fonts\FiraCodeNerdFont*.ttf") { "yes" }
+        else { "no" }
+    ' 2>/dev/null)
 
     if [[ "$FONT_CHECK" =~ "yes" ]]; then
         echo -e "\033[33mFiraCode Nerd Font is already installed. Skipping.\033[0m"
     else
-        echo "Downloading FiraCode Nerd Font..."
-
-        # Use Windows temp directory for better compatibility
-        WIN_TEMP=$(powershell.exe -NoProfile -Command 'Write-Host $env:TEMP -NoNewline')
+        # Use Windows temp directory
+        WIN_TEMP=$(powershell.exe -NoProfile -Command 'Write-Host $env:TEMP -NoNewline' 2>/dev/null)
         WIN_TEMP_WSL=$(wslpath "$WIN_TEMP")
         TMP_DIR="$WIN_TEMP_WSL/EDA_Fonts_$$"
         mkdir -p "$TMP_DIR"
@@ -102,21 +98,27 @@ function install_fonts {
         curl -fsSL -o "$TMP_DIR/FiraCode.zip" https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip
         unzip -q "$TMP_DIR/FiraCode.zip" -d "$TMP_DIR/FiraCodeNF"
 
-        FONTS_PATH="$WIN_TEMP\\EDA_Fonts_$$\\FiraCodeNF"
+        # Silent per-user font installation (no admin, no UI)
+        powershell.exe -NoProfile -Command '
+            $fontSource = "'"$WIN_TEMP"'\EDA_Fonts_'"$$"'\FiraCodeNF"
+            $userFonts = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
+            New-Item -ItemType Directory -Force -Path $userFonts | Out-Null
 
-        powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '
-            $fontFiles = Get-ChildItem -Path "'"$FONTS_PATH"'" -Filter "*.ttf"
-            foreach ($fontFile in $fontFiles) {
-                $shellApp = New-Object -ComObject Shell.Application
-                $fontsFolder = $shellApp.NameSpace(0x14)
-                $fontsFolder.CopyHere($fontFile.FullName, 16)
+            $regPath = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
+
+            Get-ChildItem -Path $fontSource -Filter "*.ttf" | ForEach-Object {
+                $fontPath = "$userFonts\$($_.Name)"
+                Copy-Item $_.FullName -Destination $fontPath -Force
+
+                # Register font in registry
+                $fontName = $_.BaseName -replace "NerdFont", " Nerd Font" -replace "-", " "
+                New-ItemProperty -Path $regPath -Name "$fontName (TrueType)" -Value $fontPath -PropertyType String -Force | Out-Null
             }
-        '
+        ' 2>/dev/null
 
         rm -rf "$TMP_DIR"
 
-        echo -e "\033[32mFiraCode Nerd Font installed successfully.\033[0m"
-        echo -e "\033[33mNote: You may need to restart Windows Terminal to see the new fonts.\033[0m"
+        echo -e "\033[32mFiraCode Nerd Font installed.\033[0m"
     fi
 }
 
