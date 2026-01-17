@@ -186,16 +186,6 @@ if ! curl -fsSL --connect-timeout 5 https://www.google.com -o /dev/null 2>&1; th
     prompt_proxy
 fi
 
-# Apply sysctl settings
-echo -e "\n\033[34mApplying system settings...\033[0m"
-if sudo mkdir -p /etc/sysctl.d > /dev/null 2>&1 && \
-   echo -e "fs.inotify.max_user_watches=1048576\nfs.inotify.max_user_instances=512" | sudo tee /etc/sysctl.d/90-wsl-inotify.conf > /dev/null 2>&1 && \
-   sudo sysctl --system > /dev/null 2>&1; then
-    echo -e "\033[32mSystem settings applied.\033[0m"
-else
-    echo -e "\033[31mWarning: Failed to apply some settings.\033[0m"
-fi
-
 # Install fonts
 read -p "Would you like to install FiraCode Nerd Font for better terminal display? (Y/n) " -n 1 -r
 echo

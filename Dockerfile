@@ -39,6 +39,10 @@ COPY --chmod=755 ./proxyman.sh /usr/local/bin/proxyman
 # SSH config
 RUN bash -c "echo 'Port 2222' >> /etc/ssh/sshd_config"
 
+# Apply sysctl settings for inotify (needed for file watchers, IDEs, etc.)
+RUN mkdir -p /etc/sysctl.d && \
+    echo -e "fs.inotify.max_user_watches=1048576\nfs.inotify.max_user_instances=512" > /etc/sysctl.d/90-wsl-inotify.conf
+
 # Create eda user and add to sudo group
 RUN useradd -m -s /bin/zsh eda && \
     echo "eda:eda" | chpasswd && \
