@@ -31,9 +31,6 @@ COPY --chmod=755 ./oobe.sh /etc/oobe.sh
 COPY ./eda_icon.ico /usr/lib/wsl/eda_icon.ico
 COPY ./terminal-profile.json /usr/lib/wsl/terminal-profile.json
 
-# Add proxyman tool
-COPY --chmod=755 ./proxyman.sh /usr/local/bin/proxyman
-
 # SSH config
 RUN bash -c "echo 'Port 2222' >> /etc/ssh/sshd_config"
 

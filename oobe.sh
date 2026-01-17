@@ -1,31 +1,5 @@
 #!/bin/bash
 
-function prompt_proxy {
-    read -p "Are you behind a proxy that you want to configure now? (y/N) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        echo -e "\nPlease provide your HTTP_PROXY URL (e.g. http://proxy.example.com:8080):"
-        read -r HTTP_PROXY
-        echo -e "\nPlease provide your HTTPS_PROXY URL (often the same as HTTP_PROXY):"
-        read -r HTTPS_PROXY
-        echo -e "\nPlease provide your NO_PROXY list (default: localhost,127.0.0.1,::1):"
-        read -r NO_PROXY
-        [ -z "$NO_PROXY" ] && NO_PROXY="localhost,127.0.0.1,::1"
-
-        echo -e "\nWriting proxy configuration to /etc/proxy.conf..."
-        echo "HTTP_PROXY=$HTTP_PROXY" | sudo tee /etc/proxy.conf > /dev/null
-        echo "HTTPS_PROXY=$HTTPS_PROXY" | sudo tee -a /etc/proxy.conf > /dev/null
-        echo "NO_PROXY=$NO_PROXY" | sudo tee -a /etc/proxy.conf > /dev/null
-
-        echo -e "\nConfiguring system-wide proxy using proxyman..."
-        SUDO_USER=eda SUDO_UID=1000 SUDO_GID=1000 sudo proxyman set > /dev/null 2>&1
-        echo -e "\nProxy has been set. You can run 'sudo proxyman unset' to remove it."
-        eval "$(sudo /usr/local/bin/proxyman export)"
-    else
-        echo -e "\nSkipping proxy configuration.\n"
-    fi
-}
-
 function import_corporate_certs {
     echo -e "\033[34m\nImporting corporate/Zscaler certificates...\033[0m"
 
@@ -35,7 +9,7 @@ function import_corporate_certs {
     # Export certificates from Windows cert store (Root and CA stores)
     powershell.exe -NoProfile -Command '
         $certs = Get-ChildItem -Path Cert:\LocalMachine\Root, Cert:\LocalMachine\CA |
-            Where-Object { $_.Subject -match "Zscaler|ZPA|Corporate|Enterprise" -or $_.Issuer -match "Zscaler|ZPA" }
+            Where-Object { $_.Subject -match "Zscaler" -or $_.Issuer -match "Zscaler" }
         foreach ($cert in $certs) {
             $fileName = $cert.Thumbprint + ".crt"
             $certPath = "'"$TMP_CERT_DIR"'\" + $fileName
@@ -182,15 +156,8 @@ printf "
 "
 echo -e "\033[32m  Welcome to EDA WSL\033[0m\n"
 
-# Check connectivity and handle proxy/certificates
-if ! curl -fsSL --connect-timeout 5 https://github.com -o /dev/null 2>&1; then
-    echo -e "\nIt seems we couldn't connect to the internet directly."
-    echo -e "This could be due to a proxy or SSL inspection (e.g., Zscaler).\n"
-
-        import_corporate_certs
-
-    prompt_proxy
-fi
+# Import corporate certificates if present
+import_corporate_certs
 
 # Install fonts
 install_fonts
