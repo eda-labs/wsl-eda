@@ -3,7 +3,7 @@
       {
         "antialiasingMode": "cleartype",
         "fontWeight": "normal",
-        "fontFace": "FiraCode Nerd Font, Consolas",
+        "fontFace": "JetBrainsMono Nerd Font, FiraCode Nerd Font, Consolas",
         "colorScheme": "Postmodern Tango Light",
         "startingDirectory": "\\\\wsl$\\EDA\\home\\eda",
         "bellStyle": "none"

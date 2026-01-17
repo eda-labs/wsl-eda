@@ -76,50 +76,54 @@ function import_corporate_certs {
 }
 
 function install_fonts {
-    echo -e "\033[34mInstalling Nerd Font...\033[0m"
+    echo -e "\033[34mInstalling Nerd Fonts...\033[0m"
 
-    # Check if font is already installed (user or system)
-    FONT_CHECK=$(powershell.exe -NoProfile -Command '
-        $userFonts = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
-        if (Test-Path "$userFonts\FiraCodeNerdFont*.ttf") { "yes" }
-        elseif (Test-Path "$env:WINDIR\Fonts\FiraCodeNerdFont*.ttf") { "yes" }
-        else { "no" }
-    ' 2>/dev/null)
+    WIN_TEMP=$(powershell.exe -NoProfile -Command 'Write-Host $env:TEMP -NoNewline' 2>/dev/null)
+    WIN_TEMP_WSL=$(wslpath "$WIN_TEMP")
+    TMP_DIR="$WIN_TEMP_WSL/EDA_Fonts_$$"
 
-    if [[ "$FONT_CHECK" =~ "yes" ]]; then
-        echo -e "\033[33mFiraCode Nerd Font is already installed. Skipping.\033[0m"
-    else
-        # Use Windows temp directory
-        WIN_TEMP=$(powershell.exe -NoProfile -Command 'Write-Host $env:TEMP -NoNewline' 2>/dev/null)
-        WIN_TEMP_WSL=$(wslpath "$WIN_TEMP")
-        TMP_DIR="$WIN_TEMP_WSL/EDA_Fonts_$$"
-        mkdir -p "$TMP_DIR"
-
-        curl -fsSL -o "$TMP_DIR/FiraCode.zip" https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip
-        unzip -q "$TMP_DIR/FiraCode.zip" -d "$TMP_DIR/FiraCodeNF"
-
-        # Silent per-user font installation (no admin, no UI)
-        powershell.exe -NoProfile -Command '
-            $fontSource = "'"$WIN_TEMP"'\EDA_Fonts_'"$$"'\FiraCodeNF"
+    # Install each font
+    for font in "JetBrainsMono" "FiraCode"; do
+        # Check if font is already installed (user or system)
+        FONT_CHECK=$(powershell.exe -NoProfile -Command '
             $userFonts = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
-            New-Item -ItemType Directory -Force -Path $userFonts | Out-Null
+            if (Test-Path "$userFonts\'"$font"'NerdFont*.ttf") { "yes" }
+            elseif (Test-Path "$env:WINDIR\Fonts\'"$font"'NerdFont*.ttf") { "yes" }
+            else { "no" }
+        ' 2>/dev/null)
 
-            $regPath = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
+        if [[ "$FONT_CHECK" =~ "yes" ]]; then
+            echo -e "  $font Nerd Font already installed."
+        else
+            echo -e "  Installing $font Nerd Font..."
+            mkdir -p "$TMP_DIR"
 
-            Get-ChildItem -Path $fontSource -Filter "*.ttf" | ForEach-Object {
-                $fontPath = "$userFonts\$($_.Name)"
-                Copy-Item $_.FullName -Destination $fontPath -Force
+            curl -fsSL -o "$TMP_DIR/$font.zip" "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/$font.zip"
+            unzip -q "$TMP_DIR/$font.zip" -d "$TMP_DIR/${font}NF"
 
-                # Register font in registry
-                $fontName = $_.BaseName -replace "NerdFont", " Nerd Font" -replace "-", " "
-                New-ItemProperty -Path $regPath -Name "$fontName (TrueType)" -Value $fontPath -PropertyType String -Force | Out-Null
-            }
-        ' 2>/dev/null
+            # Silent per-user font installation (no admin, no UI)
+            powershell.exe -NoProfile -Command '
+                $fontSource = "'"$WIN_TEMP"'\EDA_Fonts_'"$$"'\'"${font}"'NF"
+                $userFonts = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
+                New-Item -ItemType Directory -Force -Path $userFonts | Out-Null
 
-        rm -rf "$TMP_DIR"
+                $regPath = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
 
-        echo -e "\033[32mFiraCode Nerd Font installed.\033[0m"
-    fi
+                Get-ChildItem -Path $fontSource -Filter "*.ttf" | ForEach-Object {
+                    $fontPath = "$userFonts\$($_.Name)"
+                    Copy-Item $_.FullName -Destination $fontPath -Force
+
+                    # Register font in registry
+                    $fontName = $_.BaseName -replace "NerdFont", " Nerd Font" -replace "-", " "
+                    New-ItemProperty -Path $regPath -Name "$fontName (TrueType)" -Value $fontPath -PropertyType String -Force | Out-Null
+                }
+            ' 2>/dev/null
+
+            rm -rf "$TMP_DIR"
+        fi
+    done
+
+    echo -e "\033[32mNerd Fonts installed.\033[0m"
 }
 
 function import_ssh_keys {
