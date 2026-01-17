@@ -81,6 +81,28 @@ eda-up --no-simulate  # Skip loading topology
 
 EDA is configured to run on systems with **4+ vCPUs**. CPU requests are set to minimal values (10m) allowing services to burst as needed.
 
+## VS Code Integration
+
+To configure VS Code for use with EDA WSL:
+
+```bash
+eda-vscode
+```
+
+This will:
+1. Install the [WSL extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-wsl) if not present
+2. Configure the terminal font for proper Nerd Font rendering
+
+### Options
+
+```bash
+eda-vscode --check    # Check current configuration
+eda-vscode --open     # Setup and open VS Code in current directory
+eda-vscode --font     # Configure terminal font only
+```
+
+To open a directory in VS Code after setup, simply run `code .` from any directory.
+
 ## Docker Desktop
 
 If you have Docker Desktop installed, you **must** disable WSL integration for the EDA distro:

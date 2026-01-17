@@ -1,0 +1,394 @@
+#!/bin/bash
+# eda-vscode - Configure VS Code for EDA WSL
+# This script installs the WSL extension and configures terminal fonts
+
+# Don't use set -e as it causes issues with conditional checks
+# set -e
+
+BLUE='\033[34m'
+GREEN='\033[32m'
+YELLOW='\033[33m'
+RED='\033[31m'
+NC='\033[0m'
+
+FONT_FAMILY="JetBrainsMono Nerd Font, FiraCode Nerd Font, Consolas"
+
+log() {
+    echo -e "${BLUE}[eda-vscode]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[eda-vscode]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[eda-vscode]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[eda-vscode]${NC} $1"
+}
+
+# Check if 'code' command works from WSL (not just exists in PATH)
+code_works_from_wsl() {
+    command -v code &>/dev/null && code --version &>/dev/null
+}
+
+check_vscode() {
+    log "Checking for VS Code installation..."
+
+    # Method 1: Check if 'code' command works directly from WSL
+    if code_works_from_wsl; then
+        log_success "VS Code found (code command works from WSL)."
+        return 0
+    fi
+
+    log "  code command not available in WSL, checking Windows..."
+
+    # Method 2: Check common Windows installation paths via PowerShell
+    VSCODE_CHECK=$(powershell.exe -NoProfile -Command '
+        $paths = @(
+            "$env:LOCALAPPDATA\Programs\Microsoft VS Code\bin\code.cmd",
+            "$env:ProgramFiles\Microsoft VS Code\bin\code.cmd",
+            "${env:ProgramFiles(x86)}\Microsoft VS Code\bin\code.cmd"
+        )
+        foreach ($path in $paths) {
+            if (Test-Path $path) {
+                Write-Output "found:$path"
+                exit
+            }
+        }
+        # Also try where.exe
+        $whereResult = & where.exe code 2>$null
+        if ($whereResult) {
+            Write-Output "found:where"
+            exit
+        }
+        Write-Output "not-found"
+    ' 2>&1) || true
+
+    log "  PowerShell check result: $VSCODE_CHECK"
+
+    if [[ "$VSCODE_CHECK" =~ "found" ]]; then
+        log_success "VS Code found on Windows."
+        return 0
+    fi
+
+    log_error "VS Code is not installed or not in PATH."
+    echo -e "  Please install VS Code from: https://code.visualstudio.com/"
+    echo -e "  Make sure to check 'Add to PATH' during installation."
+    exit 1
+}
+
+check_wsl_extension() {
+    log "Checking for WSL extension..."
+
+    # If 'code' command works from WSL, the WSL extension is already installed and working
+    # (VS Code only makes 'code' available in WSL when the WSL extension is active)
+    if code_works_from_wsl; then
+        log_success "WSL extension is already installed (code command available)."
+        return 0
+    fi
+
+    log "  Checking via PowerShell..."
+
+    # Fall back to checking via PowerShell on Windows
+    EXTENSION_CHECK=$(powershell.exe -NoProfile -Command '
+        $extensions = & code --list-extensions 2>$null
+        if ($extensions -match "ms-vscode-remote.remote-wsl") {
+            Write-Output "installed"
+        } else {
+            Write-Output "not-installed"
+        }
+    ' 2>&1) || true
+
+    log "  Extension check result: $EXTENSION_CHECK"
+
+    if [[ "$EXTENSION_CHECK" =~ "installed" ]]; then
+        log_success "WSL extension is already installed."
+        return 0
+    fi
+
+    return 1
+}
+
+install_wsl_extension() {
+    log "Installing WSL extension..."
+
+    if code_works_from_wsl; then
+        log "  Using code command from WSL..."
+        code --install-extension ms-vscode-remote.remote-wsl --force
+    else
+        log "  Using PowerShell to install extension..."
+        powershell.exe -NoProfile -Command '
+            & code --install-extension ms-vscode-remote.remote-wsl --force
+        '
+    fi
+
+    log "  Verifying installation..."
+    if check_wsl_extension; then
+        log_success "WSL extension installed successfully."
+    else
+        log_error "Failed to install WSL extension."
+        echo -e "  Try installing manually in VS Code or run:"
+        echo -e "  code --install-extension ms-vscode-remote.remote-wsl"
+        exit 1
+    fi
+}
+
+configure_terminal_font() {
+    log "Configuring terminal font for EDA WSL..."
+
+    # Get the VS Code user settings path
+    SETTINGS_PATH=$(powershell.exe -NoProfile -Command '
+        Write-Host "$env:APPDATA\Code\User\settings.json" -NoNewline
+    ' 2>/dev/null)
+
+    SETTINGS_PATH_WSL=$(wslpath "$SETTINGS_PATH" 2>/dev/null)
+
+    # Check if settings file exists, create directory if needed
+    SETTINGS_DIR=$(dirname "$SETTINGS_PATH_WSL")
+    if [ ! -d "$SETTINGS_DIR" ]; then
+        mkdir -p "$SETTINGS_DIR"
+    fi
+
+    # The setting key for WSL-specific terminal font
+    # Format: terminal.integrated.fontFamily for global, or per-profile
+    SETTING_KEY='terminal.integrated.profiles.linux.EDA.args'
+    FONT_SETTING_KEY='terminal.integrated.fontFamily'
+
+    if [ ! -f "$SETTINGS_PATH_WSL" ]; then
+        # Create new settings file with font configuration
+        log "Creating VS Code settings with terminal font..."
+        cat > "$SETTINGS_PATH_WSL" << EOF
+{
+    "terminal.integrated.fontFamily": "$FONT_FAMILY"
+}
+EOF
+        log_success "Created VS Code settings with terminal font."
+    else
+        # Check if font is already configured
+        if grep -q "terminal.integrated.fontFamily" "$SETTINGS_PATH_WSL" 2>/dev/null; then
+            CURRENT_FONT=$(grep "terminal.integrated.fontFamily" "$SETTINGS_PATH_WSL" | head -1)
+            if [[ "$CURRENT_FONT" =~ "JetBrainsMono Nerd Font" ]]; then
+                log_success "Terminal font already configured."
+                return 0
+            else
+                log_warn "Terminal font is set to a different value."
+                echo -e "  Current: $CURRENT_FONT"
+                echo -e "  Recommended: \"$FONT_FAMILY\""
+                echo ""
+                read -p "  Update to recommended font? [Y/n] " -n 1 -r
+                echo
+                if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+                    update_font_setting "$SETTINGS_PATH_WSL"
+                fi
+            fi
+        else
+            # Add font setting to existing file
+            log "Adding terminal font to VS Code settings..."
+            update_font_setting "$SETTINGS_PATH_WSL"
+        fi
+    fi
+}
+
+update_font_setting() {
+    local settings_file="$1"
+
+    # Use a temporary file for safe editing
+    local tmp_file=$(mktemp)
+
+    # Check if jq is available for proper JSON manipulation
+    if command -v jq &> /dev/null; then
+        jq --arg font "$FONT_FAMILY" '. + {"terminal.integrated.fontFamily": $font}' "$settings_file" > "$tmp_file" 2>/dev/null
+        if [ $? -eq 0 ] && [ -s "$tmp_file" ]; then
+            mv "$tmp_file" "$settings_file"
+            log_success "Terminal font configured."
+            return 0
+        fi
+    fi
+
+    # Fallback: simple text-based approach
+    if grep -q "terminal.integrated.fontFamily" "$settings_file" 2>/dev/null; then
+        # Replace existing setting
+        sed -i 's|"terminal.integrated.fontFamily".*|"terminal.integrated.fontFamily": "'"$FONT_FAMILY"'",|' "$settings_file"
+    else
+        # Add setting after opening brace
+        sed -i 's|^{|{\n    "terminal.integrated.fontFamily": "'"$FONT_FAMILY"'",|' "$settings_file"
+    fi
+
+    rm -f "$tmp_file"
+    log_success "Terminal font configured."
+}
+
+open_in_vscode() {
+    log "Opening current directory in VS Code..."
+
+    # Use the code command to open in WSL mode
+    code . 2>/dev/null &
+
+    log_success "VS Code is opening with WSL connection."
+    echo -e "  If this is your first time, VS Code will install the WSL server component."
+}
+
+show_help() {
+    cat << 'EOF'
+eda-vscode - Configure VS Code for EDA WSL
+
+Usage: eda-vscode [OPTIONS]
+
+Options:
+    -h, --help      Show this help message
+    -c, --check     Check VS Code configuration only
+    -o, --open      Open current directory in VS Code after setup
+    -f, --font      Configure terminal font only
+
+Examples:
+    eda-vscode              # Full setup: extension + font
+    eda-vscode --check      # Check current configuration
+    eda-vscode --open       # Setup and open VS Code
+
+EOF
+}
+
+show_status() {
+    echo ""
+    echo -e "${BLUE}VS Code Configuration Status:${NC}"
+    echo ""
+
+    # Check VS Code
+    VSCODE_FOUND=false
+    if code_works_from_wsl; then
+        VSCODE_FOUND=true
+    else
+        # Check Windows paths via PowerShell
+        VSCODE_CHECK=$(powershell.exe -NoProfile -Command '
+            $paths = @(
+                "$env:LOCALAPPDATA\Programs\Microsoft VS Code\bin\code.cmd",
+                "$env:ProgramFiles\Microsoft VS Code\bin\code.cmd"
+            )
+            foreach ($path in $paths) {
+                if (Test-Path $path) { Write-Output "found"; exit }
+            }
+            $w = & where.exe code 2>$null
+            if ($w) { Write-Output "found" } else { Write-Output "not-found" }
+        ' 2>/dev/null)
+        [[ "$VSCODE_CHECK" =~ "found" ]] && VSCODE_FOUND=true
+    fi
+
+    if [ "$VSCODE_FOUND" = true ]; then
+        echo -e "  VS Code:        ${GREEN}Installed${NC}"
+    else
+        echo -e "  VS Code:        ${RED}Not found${NC}"
+        return
+    fi
+
+    # Check WSL extension - if 'code' works from WSL, extension is installed
+    WSL_EXT_INSTALLED=false
+    if code_works_from_wsl; then
+        WSL_EXT_INSTALLED=true
+    else
+        EXTENSION_CHECK=$(powershell.exe -NoProfile -Command '
+            $extensions = & code --list-extensions 2>$null
+            if ($extensions -match "ms-vscode-remote.remote-wsl") {
+                Write-Output "installed"
+            } else {
+                Write-Output "not-installed"
+            }
+        ' 2>/dev/null)
+        [[ "$EXTENSION_CHECK" =~ "installed" ]] && WSL_EXT_INSTALLED=true
+    fi
+
+    if [ "$WSL_EXT_INSTALLED" = true ]; then
+        echo -e "  WSL Extension:  ${GREEN}Installed${NC}"
+    else
+        echo -e "  WSL Extension:  ${YELLOW}Not installed${NC}"
+    fi
+
+    # Check font configuration
+    SETTINGS_PATH=$(powershell.exe -NoProfile -Command '
+        Write-Host "$env:APPDATA\Code\User\settings.json" -NoNewline
+    ' 2>/dev/null)
+    SETTINGS_PATH_WSL=$(wslpath "$SETTINGS_PATH" 2>/dev/null)
+
+    if [ -f "$SETTINGS_PATH_WSL" ] && grep -q "JetBrainsMono Nerd Font" "$SETTINGS_PATH_WSL" 2>/dev/null; then
+        echo -e "  Terminal Font:  ${GREEN}Configured${NC}"
+    else
+        echo -e "  Terminal Font:  ${YELLOW}Not configured${NC}"
+    fi
+
+    echo ""
+}
+
+# Parse arguments
+CHECK_ONLY=false
+OPEN_VSCODE=false
+FONT_ONLY=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        -c|--check)
+            CHECK_ONLY=true
+            shift
+            ;;
+        -o|--open)
+            OPEN_VSCODE=true
+            shift
+            ;;
+        -f|--font)
+            FONT_ONLY=true
+            shift
+            ;;
+        *)
+            log_error "Unknown option: $1"
+            show_help
+            exit 1
+            ;;
+    esac
+done
+
+# Main execution
+echo ""
+echo -e "${GREEN}EDA VS Code Setup${NC}"
+echo ""
+
+if [ "$CHECK_ONLY" = true ]; then
+    show_status
+    exit 0
+fi
+
+if [ "$FONT_ONLY" = true ]; then
+    check_vscode
+    configure_terminal_font
+    echo ""
+    log_success "Font configuration complete."
+    exit 0
+fi
+
+# Full setup
+check_vscode
+
+if ! check_wsl_extension; then
+    install_wsl_extension
+fi
+
+configure_terminal_font
+
+echo ""
+log_success "VS Code is configured for EDA WSL."
+echo ""
+echo -e "  To connect to this WSL instance:"
+echo -e "    1. Open VS Code"
+echo -e "    2. Press ${BLUE}Ctrl+Shift+P${NC} and type 'WSL: Connect to WSL'"
+echo -e "    3. Select 'EDA' from the distribution list"
+echo -e ""
+echo -e "  Or run: ${BLUE}code .${NC} from any directory in this WSL"
+echo ""
+
+if [ "$OPEN_VSCODE" = true ]; then
+    open_in_vscode
+fi
