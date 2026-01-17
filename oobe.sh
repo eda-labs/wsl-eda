@@ -92,12 +92,17 @@ function install_fonts {
         echo -e "\033[33mFiraCode Nerd Font is already installed. Skipping.\033[0m"
     else
         echo "Downloading FiraCode Nerd Font..."
-        TMP_DIR=$(mktemp -d)
-        cd "$TMP_DIR"
-        curl -fLo "FiraCode.zip" https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip
 
-        unzip -q FiraCode.zip -d FiraCodeNF
-        FONTS_PATH=$(wslpath -w "$TMP_DIR/FiraCodeNF")
+        # Use Windows temp directory for better compatibility
+        WIN_TEMP=$(powershell.exe -NoProfile -Command 'Write-Host $env:TEMP -NoNewline')
+        WIN_TEMP_WSL=$(wslpath "$WIN_TEMP")
+        TMP_DIR="$WIN_TEMP_WSL/EDA_Fonts_$$"
+        mkdir -p "$TMP_DIR"
+
+        curl -fsSL -o "$TMP_DIR/FiraCode.zip" https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip
+        unzip -q "$TMP_DIR/FiraCode.zip" -d "$TMP_DIR/FiraCodeNF"
+
+        FONTS_PATH="$WIN_TEMP\\EDA_Fonts_$$\\FiraCodeNF"
 
         powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '
             $fontFiles = Get-ChildItem -Path "'"$FONTS_PATH"'" -Filter "*.ttf"
@@ -108,7 +113,6 @@ function install_fonts {
             }
         '
 
-        cd ~
         rm -rf "$TMP_DIR"
 
         echo -e "\033[32mFiraCode Nerd Font installed successfully.\033[0m"
@@ -187,11 +191,7 @@ if ! curl -fsSL --connect-timeout 5 https://www.google.com -o /dev/null 2>&1; th
 fi
 
 # Install fonts
-read -p "Would you like to install FiraCode Nerd Font for better terminal display? (Y/n) " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-    install_fonts
-fi
+install_fonts
 
 # Import SSH keys
 import_ssh_keys

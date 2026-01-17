@@ -31,8 +31,6 @@ COPY --chmod=755 ./oobe.sh /etc/oobe.sh
 COPY ./eda_icon.ico /usr/lib/wsl/eda_icon.ico
 COPY ./terminal-profile.json /usr/lib/wsl/terminal-profile.json
 
-COPY ./profile /etc/profile
-
 # Add proxyman tool
 COPY --chmod=755 ./proxyman.sh /usr/local/bin/proxyman
 
