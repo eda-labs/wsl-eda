@@ -17,7 +17,7 @@ format = '· [$symbol($version )]($style)'
 format = '· [$symbol$version]($style) '
 
 [python]
-format = '· [${symbol}${pyenv_prefix}(${version} )(\($virtualenv\)) ]($style)'
+format = '· [${symbol}(${version} )(\($virtualenv\)) ]($style)'
 
 [kubernetes]
 disabled = false

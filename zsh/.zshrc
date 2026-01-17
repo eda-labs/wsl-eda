@@ -11,18 +11,10 @@ plugins=(
     F-Sy-H
 )
 
-# Add custom completions to fpath (gnmic, gnoic, etc.)
-fpath=(~/.oh-my-zsh/completions $fpath)
-
 source $ZSH/oh-my-zsh.sh
 
 # Initialize starship prompt
 eval "$(starship init zsh)"
-
-# pyenv
-export PYENV_ROOT="$HOME/.pyenv"
-[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init -)" 2>/dev/null || true
 
 # Aliases
 alias ll='ls -alF'
