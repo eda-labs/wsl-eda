@@ -21,6 +21,7 @@ RUN apt update -y && apt upgrade -y && \
     telnet \
     unzip \
     openssl \
+    wget \
     openssh-server && \
     rm -rf /var/lib/apt/lists/*
 
