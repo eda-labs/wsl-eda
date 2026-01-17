@@ -1,0 +1,23 @@
+# KPT Setters for WSL environments
+# Reduced CPU requests to work well on typical WSL resource constraints
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wsl-apply-setter-fn-config
+data:
+  EAE_REQ_CPU: 10m
+  ASVR_REQ_CPU: 10m
+  BSVR_REQ_CPU: 10m
+  ECC_REQ_CPU: 10m
+  EMS_REQ_CPU: 10m
+  KC_REQ_CPU: 10m
+  ASC_REQ_CPU: 10m
+  PG_REQ_CPU: 10m
+  FE_REQ_CPU: 10m
+  NPP_REQ_CPU: 10m
+  TM_REQ_CPU: 10m
+  CX_REQ_CPU: 10m
+  SE_REQ_CPU: 10m
+  SA_REQ_CPU: 10m
+  SC_REQ_CPU: 10m
+  GOGS_PV_CLAIM_SIZE: 5Gi

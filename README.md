@@ -11,8 +11,9 @@ A WSL distribution designed for easy 'plug and play' usage with [EDA](https://ed
 1. Download the `.wsl` file from the [releases page](https://github.com/eda-labs/wsl-eda/releases/latest)
 2. Double click the `.wsl` file to install
 3. Open 'EDA' from the start menu, or execute `wsl -d EDA`
-4. Complete the first-run setup (proxy, fonts, SSH keys)
-5. Done!
+4. Complete the first-run setup (certificates, fonts, SSH keys)
+5. Run `eda-up` to start the EDA environment
+6. Access EDA at https://localhost:9443 (admin/admin)
 
 > [!NOTE]
 > Default credentials are `eda:eda`
@@ -51,6 +52,34 @@ To run the setup again: `/etc/oobe.sh`
 
 > [!IMPORTANT]
 > After installation, restart Windows Terminal to apply font settings.
+
+## Starting EDA
+
+Once the first-run setup is complete, start EDA with:
+
+```bash
+eda-up
+```
+
+This will:
+1. Clone the [EDA playground](https://github.com/nokia-eda/playground) to `~/playground`
+2. Download required tools (kind, kubectl, kpt, etc.)
+3. Create a KIND cluster and deploy EDA
+4. Load a simulated network topology
+
+First run takes several minutes. Once complete, access EDA at **https://localhost:9443** (admin/admin).
+
+### Options
+
+```bash
+eda-up --status     # Check running environment
+eda-up --clean      # Fresh start (removes cluster)
+eda-up --no-simulate  # Skip loading topology
+```
+
+### Resource Requirements
+
+EDA is configured to run on systems with **4+ vCPUs**. CPU requests are set to minimal values (10m) allowing services to burst as needed.
 
 ## Docker Desktop
 
