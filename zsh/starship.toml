@@ -1,0 +1,30 @@
+# Get editor completions based on the config schema
+"$schema" = 'https://starship.rs/config-schema.json'
+
+# Inserts a blank line between shell prompts
+add_newline = true
+
+[git_branch]
+format = '· [$symbol$branch(:$remote_branch)]($style) '
+
+[git_commit]
+tag_disabled = false
+
+[golang]
+format = '· [$symbol($version )]($style)'
+
+[package]
+format = '· [$symbol$version]($style) '
+
+[python]
+format = '· [${symbol}${pyenv_prefix}(${version} )(\($virtualenv\)) ]($style)'
+
+[kubernetes]
+disabled = false
+format = '[$symbol$context( \($namespace\))]($style) '
+
+[container]
+disabled = true
+
+[direnv]
+disabled = true

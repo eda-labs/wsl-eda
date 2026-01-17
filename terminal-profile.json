@@ -5,7 +5,7 @@
         "fontWeight": "normal",
         "fontFace": "FiraCode Nerd Font, Consolas",
         "colorScheme": "Postmodern Tango Light",
-        "startingDirectory": "\\\\wsl$\\Containerlab\\home\\clab",
+        "startingDirectory": "\\\\wsl$\\EDA\\home\\eda",
         "bellStyle": "none"
       }
     ],

@@ -34,16 +34,16 @@ jobs:
       - name: Ensure ALL tags are present
         run: git fetch --tags --prune --force
 
-      - name: Get latest Containerlab version
-        id: clab
+      - name: Get latest EDA version
+        id: eda
         shell: bash
         run: |
           set -euo pipefail
           latest_url=$(curl -sLI -o /dev/null -w '%{url_effective}' \
-                       https://github.com/srl-labs/containerlab/releases/latest)
+                       https://github.com/eda-labs/eda/releases/latest)
           ver=${latest_url##*/}
-          echo "CONTAINERLAB_VER=${ver#v}" >> "$GITHUB_OUTPUT"
-          echo "Found Containerlab ${ver#v}"
+          echo "EDA_VER=${ver#v}" >> "$GITHUB_OUTPUT"
+          echo "Found EDA ${ver#v}"
 
       - name: Get latest WSL image tag
         id: current
@@ -54,14 +54,14 @@ jobs:
           echo "LATEST_TAG=$tag" >> "$GITHUB_OUTPUT"
 
           if [[ -z "$tag" ]]; then
-            echo "CONTAINERLAB_CUR=none"  >> "$GITHUB_OUTPUT"
+            echo "EDA_CUR=none"  >> "$GITHUB_OUTPUT"
             echo "WSL_CUR=none"           >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           echo "Latest tag is $tag"
 
-          echo "CONTAINERLAB_CUR=${tag%%-*}" >> "$GITHUB_OUTPUT"
+          echo "EDA_CUR=${tag%%-*}" >> "$GITHUB_OUTPUT"
           echo "WSL_CUR=${tag#*-}"           >> "$GITHUB_OUTPUT"
 
       - name: Decide whether to cut a new tag
@@ -71,8 +71,8 @@ jobs:
           set -euo pipefail
 
           need_release="false"
-          new_clab="${{ steps.clab.outputs.CONTAINERLAB_VER }}"
-          cur_clab="${{ steps.current.outputs.CONTAINERLAB_CUR }}"
+          new_eda="${{ steps.eda.outputs.EDA_VER }}"
+          cur_eda="${{ steps.current.outputs.EDA_CUR }}"
           cur_wsl="${{ steps.current.outputs.WSL_CUR }}"
           new_wsl="1.0"
 
@@ -84,17 +84,17 @@ jobs:
 
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             need_release="true"
-            [[ "$cur_clab" == "$new_clab" && "$cur_wsl" != "none" ]] && bump_wsl
-          elif [[ "$cur_clab" == "none" ]]; then
+            [[ "$cur_eda" == "$new_eda" && "$cur_wsl" != "none" ]] && bump_wsl
+          elif [[ "$cur_eda" == "none" ]]; then
             need_release="true"
-          elif [[ "$cur_clab" != "$new_clab" ]]; then
+          elif [[ "$cur_eda" != "$new_eda" ]]; then
             need_release="true"
           fi
 
           echo "NEED_RELEASE=$need_release" >> "$GITHUB_OUTPUT"
 
           if [[ "$need_release" == "true" ]]; then
-            new_tag="${new_clab}-${new_wsl}"
+            new_tag="${new_eda}-${new_wsl}"
             echo "NEW_TAG=$new_tag" >> "$GITHUB_OUTPUT"
             echo "Releasing $new_tag"
           else
@@ -117,7 +117,7 @@ jobs:
           tag_name: ${{ steps.decide.outputs.NEW_TAG }}
           name: "Release ${{ steps.decide.outputs.NEW_TAG }}"
           body: |
-            WSL2 image for Containerlab ${{ steps.clab.outputs.CONTAINERLAB_VER }}
+            WSL2 image for EDA ${{ steps.eda.outputs.EDA_VER }}
 
             ${{ github.event_name == 'workflow_dispatch' && 'Manually triggered.' || 'Automated nightly release.' }}
           draft: false
@@ -136,19 +136,19 @@ jobs:
       - uses: docker/setup-buildx-action@v2
 
       - name: Build Docker image
-        run: docker build . -t clab-wsl-debian
+        run: docker build . -t eda-wsl-debian
 
       - name: Export container filesystem ➜ .wsl
         run: |
-          docker run -t --name wsl_export clab-wsl-debian ls /
-          docker export  wsl_export -o clab.tar
+          docker run -t --name wsl_export eda-wsl-debian ls /
+          docker export  wsl_export -o eda.tar
           docker rm      wsl_export
-          mv clab.tar    clab.wsl
+          mv eda.tar    eda.wsl
 
       - uses: actions/upload-artifact@v4
         with:
-          name: clab-wsl2
-          path: clab.wsl
+          name: eda-wsl2
+          path: eda.wsl
 
       - name: Determine tag name
         id: tag
@@ -163,6 +163,6 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: clab.wsl
-          asset_name: clab-${{ steps.tag.outputs.TAG }}.wsl
+          file: eda.wsl
+          asset_name: eda-${{ steps.tag.outputs.TAG }}.wsl
           tag: ${{ steps.tag.outputs.TAG }}

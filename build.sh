@@ -2,8 +2,8 @@
 
 # Define container name and image tag
 CONTAINER_NAME="wsl_export"
-IMAGE_TAG="ghcr.io/kaelemc/clab-wsl-debian"
-EXPORT_FILENAME="clab.wsl" # Keep the filename consistent for now
+IMAGE_TAG="ghcr.io/eda-labs/eda-wsl-debian"
+EXPORT_FILENAME="eda.wsl"
 
 # --- Automatic Temporary Path Detection ---
 TEMP_PATH=""

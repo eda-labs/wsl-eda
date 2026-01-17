@@ -1,34 +1,34 @@
 FROM debian:bookworm-slim
 
-RUN apt update -y && apt upgrade -y
-RUN apt install -y \
+RUN apt update -y && apt upgrade -y && \
+    apt install -y --no-install-recommends \
+    make \
     git \
+    ca-certificates \
     curl \
-    sudo \
-    wget \
-    nano \
-    vim \
     jq \
-    bash-completion
-
-RUN apt install -y  --no-install-recommends \
-    direnv \
     btop \
-    iputils-ping \
-    tcpdump \
+    sudo \
+    zsh \
     iproute2 \
-    qemu-kvm \
+    procps \
+    vim \
+    xz-utils \
+    net-tools \
+    iputils-ping \
     dnsutils \
+    tcpdump \
     telnet \
     unzip \
-    openssh-server \
-    zsh && rm -rf /var/lib/apt/lists/*
+    openssl \
+    openssh-server && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy WSL related config and scripts
 COPY --chmod=644 --chown=root:root ./wsl-distribution.conf /etc/wsl-distribution.conf
 COPY --chmod=644 --chown=root:root ./wsl.conf /etc/wsl.conf
 COPY --chmod=755 ./oobe.sh /etc/oobe.sh
-COPY ./clab_icon.ico /usr/lib/wsl/clab_icon.ico
+COPY ./eda_icon.ico /usr/lib/wsl/eda_icon.ico
 COPY ./terminal-profile.json /usr/lib/wsl/terminal-profile.json
 
 COPY ./profile /etc/profile
@@ -36,45 +36,47 @@ COPY ./profile /etc/profile
 # Add proxyman tool
 COPY --chmod=755 ./proxyman.sh /usr/local/bin/proxyman
 
-RUN bash -c "echo 'port 2222' >> /etc/ssh/sshd_config"
+# SSH config
+RUN bash -c "echo 'Port 2222' >> /etc/ssh/sshd_config"
 
-# Create clab user and add to sudo group
-RUN useradd -m -s /bin/zsh clab && \
-    echo "clab:clab" | chpasswd && \
-    adduser clab sudo && \
-    # Add NOPASSWD sudo rights for clab user
-    echo "clab ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/clab && \
-    chmod 0440 /etc/sudoers.d/clab && \
-    # Copy skel files to clab's home
-    cp -r /etc/skel/. /home/clab/ && \
-    chown -R clab:clab /home/clab/
+# Create eda user and add to sudo group
+RUN useradd -m -s /bin/zsh eda && \
+    echo "eda:eda" | chpasswd && \
+    adduser eda sudo && \
+    echo "eda ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/eda && \
+    chmod 0440 /etc/sudoers.d/eda
 
-# Set clab as default user
-ENV USER=clab
-USER clab
-WORKDIR /home/clab
-
-# Install Containerlab
-RUN curl -sL https://containerlab.dev/setup | sudo -E bash -s "all"
+# Set eda as default user
+ENV USER=eda
+USER eda
+WORKDIR /home/eda
 
 # Install gNMIc and gNOIc
 RUN bash -c "$(curl -sL https://get-gnmic.openconfig.net)" && \
     bash -c "$(curl -sL https://get-gnoic.kmrd.dev)"
 
-# Create SSH key for vscode user to enable passwordless SSH to devices
+# Install Starship prompt
+RUN curl -sS https://starship.rs/install.sh | sudo sh -s -- -y
+
+# Create SSH key
 RUN ssh-keygen -t ecdsa -b 256 -N "" -f ~/.ssh/id_ecdsa
 
 # Install pyenv
 RUN bash -c "$(curl https://pyenv.run)"
 
 # Install Oh My Zsh
-RUN bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
-COPY --chown=clab:clab ./zsh/.zshrc /home/clab/.zshrc
-COPY --chown=clab:clab ./zsh/.p10k-lean.zsh /home/clab/.p10k-lean.zsh
-COPY --chown=clab:clab ./zsh/.zshrc-lean /home/clab/.zshrc-lean
-COPY --chown=clab:clab ./zsh/.p10k.zsh /home/clab/.p10k.zsh
-COPY --chown=clab:clab ./zsh/install-zsh-plugins.sh /tmp/install-zsh-plugins.sh
-COPY --chown=clab:clab ./zsh/install-tools-completions.sh /tmp/install-tools-completions.sh
-RUN chmod +x /tmp/install-zsh-plugins.sh /tmp/install-tools-completions.sh
-RUN bash -c "/tmp/install-zsh-plugins.sh && /tmp/install-tools-completions.sh"
+# Install zsh plugins
+RUN git clone --depth 1 https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions && \
+    git clone --depth 1 https://github.com/z-shell/F-Sy-H.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/F-Sy-H
+
+# Copy shell configuration
+COPY --chown=eda:eda ./zsh/.zshrc /home/eda/.zshrc
+RUN mkdir -p /home/eda/.config
+COPY --chown=eda:eda ./zsh/starship.toml /home/eda/.config/starship.toml
+
+# Generate tool completions
+RUN mkdir -p ~/.oh-my-zsh/completions && \
+    gnmic completion zsh > ~/.oh-my-zsh/completions/_gnmic && \
+    gnoic completion zsh > ~/.oh-my-zsh/completions/_gnoic
