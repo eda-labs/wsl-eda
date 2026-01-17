@@ -183,7 +183,7 @@ printf "
 echo -e "\033[32m  Welcome to EDA WSL\033[0m\n"
 
 # Check connectivity and handle proxy/certificates
-if ! curl -fsSL --connect-timeout 5 https://www.google.com -o /dev/null 2>&1; then
+if ! curl -fsSL --connect-timeout 5 https://github.com -o /dev/null 2>&1; then
     echo -e "\nIt seems we couldn't connect to the internet directly."
     echo -e "This could be due to a proxy or SSL inspection (e.g., Zscaler).\n"
 
