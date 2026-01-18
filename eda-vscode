@@ -83,28 +83,15 @@ check_vscode() {
 check_wsl_extension() {
     log "Checking for WSL extension..."
 
-    # If 'code' command works from WSL, the WSL extension is already installed and working
-    # (VS Code only makes 'code' available in WSL when the WSL extension is active)
-    if code_works_from_wsl; then
-        log_success "WSL extension is already installed (code command available)."
-        return 0
-    fi
-
-    log "  Checking via PowerShell..."
-
-    # Fall back to checking via PowerShell on Windows
+    # The WSL extension is installed on Windows side, not WSL side
+    # So we must always check via PowerShell to see Windows extensions
     EXTENSION_CHECK=$(powershell.exe -NoProfile -Command '
-        $extensions = & code --list-extensions 2>$null
-        if ($extensions -match "ms-vscode-remote.remote-wsl") {
-            Write-Output "installed"
-        } else {
-            Write-Output "not-installed"
-        }
+        & code --list-extensions 2>$null
     ' 2>&1) || true
 
-    log "  Extension check result: $EXTENSION_CHECK"
+    log "  Extension check result: $(echo "$EXTENSION_CHECK" | grep -i "remote-wsl" || echo 'not found')"
 
-    if [[ "$EXTENSION_CHECK" =~ "installed" ]]; then
+    if echo "$EXTENSION_CHECK" | grep -q "ms-vscode-remote.remote-wsl"; then
         log_success "WSL extension is already installed."
         return 0
     fi
@@ -283,21 +270,12 @@ show_status() {
         return
     fi
 
-    # Check WSL extension - if 'code' works from WSL, extension is installed
+    # Check WSL extension - must use PowerShell since it's a Windows-side extension
     WSL_EXT_INSTALLED=false
-    if code_works_from_wsl; then
-        WSL_EXT_INSTALLED=true
-    else
-        EXTENSION_CHECK=$(powershell.exe -NoProfile -Command '
-            $extensions = & code --list-extensions 2>$null
-            if ($extensions -match "ms-vscode-remote.remote-wsl") {
-                Write-Output "installed"
-            } else {
-                Write-Output "not-installed"
-            }
-        ' 2>/dev/null)
-        [[ "$EXTENSION_CHECK" =~ "installed" ]] && WSL_EXT_INSTALLED=true
-    fi
+    EXTENSION_CHECK=$(powershell.exe -NoProfile -Command '
+        & code --list-extensions 2>$null
+    ' 2>/dev/null) || true
+    echo "$EXTENSION_CHECK" | grep -q "ms-vscode-remote.remote-wsl" && WSL_EXT_INSTALLED=true
 
     if [ "$WSL_EXT_INSTALLED" = true ]; then
         echo -e "  WSL Extension:  ${GREEN}Installed${NC}"
