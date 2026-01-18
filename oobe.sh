@@ -164,5 +164,9 @@ install_fonts
 # Import SSH keys
 import_ssh_keys
 
+# Pre-clone and configure EDA playground
+echo -e "\033[34m\nSetting up EDA playground...\033[0m"
+eda-up --setup-only
+
 echo -e "\n\033[32mSetup complete! Please restart the terminal.\033[0m"
 exit 0

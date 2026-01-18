@@ -10,7 +10,7 @@ YELLOW='\033[33m'
 RED='\033[31m'
 NC='\033[0m'
 
-PLAYGROUND_DIR="$HOME/playground"
+PLAYGROUND_DIR="$HOME/nokia-eda/playground"
 EDA_CONFIG_DIR="/opt/eda"
 
 log() {
@@ -104,11 +104,13 @@ Options:
     -c, --clean     Remove existing playground and start fresh
     -s, --status    Show status of running EDA environment
     --no-simulate   Don't load simulated topology
+    --setup-only    Clone repo and apply patches, but don't deploy EDA
 
 Examples:
     eda-up              # Start EDA environment
     eda-up --clean      # Fresh start
     eda-up --status     # Check status
+    eda-up --setup-only # Prepare playground without deploying
 
 EOF
 }
@@ -146,6 +148,7 @@ CLEAN=false
 UPDATE=false
 STATUS=false
 NO_SIMULATE=false
+SETUP_ONLY=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -167,6 +170,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --no-simulate)
             NO_SIMULATE=true
+            shift
+            ;;
+        --setup-only)
+            SETUP_ONLY=true
             shift
             ;;
         *)
@@ -216,6 +223,12 @@ fi
 
 clone_playground
 setup_overrides
+
+# Exit early if setup-only mode
+if [ "$SETUP_ONLY" = true ]; then
+    log_success "Setup complete. Run 'eda-up' to deploy EDA."
+    exit 0
+fi
 
 # Modify make command based on options
 MAKE_ARGS="SIMULATE=true"
