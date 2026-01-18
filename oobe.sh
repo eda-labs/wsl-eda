@@ -1,5 +1,12 @@
 #!/bin/bash
 
+function ensure_interop {
+    # https://github.com/microsoft/WSL/issues/8843
+    if [ ! -f /proc/sys/fs/binfmt_misc/WSLInterop ]; then
+        echo ":WSLInterop:M::MZ::/init:P" | sudo tee /proc/sys/fs/binfmt_misc/register >/dev/null 2>&1
+    fi
+}
+
 function import_corporate_certs {
     echo -e "\033[34m\nImporting corporate/Zscaler certificates...\033[0m"
 
@@ -154,6 +161,8 @@ printf "
 
 "
 echo -e "\033[32m  Welcome to EDA WSL\033[0m\n"
+
+ensure_interop
 
 # Import corporate certificates if present
 import_corporate_certs
