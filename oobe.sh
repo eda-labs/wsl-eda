@@ -10,34 +10,30 @@ function ensure_interop {
 function import_corporate_certs {
     echo -e "\033[34m\nImporting corporate/Zscaler certificates...\033[0m"
 
-    # Export Windows root certificates that might be from Zscaler/corporate CA
     TMP_CERT_DIR=$(mktemp -d)
-    WIN_TMP_CERT_DIR_PATH=$(wslpath -w $TMP_CERT_DIR)
-
-    # Export certificates from Windows cert store (Root and CA stores)
-    powershell.exe -NoProfile -Command '
-        $outDir = "'$WIN_TMP_CERT_DIR_PATH'"
-        $certs = Get-ChildItem -Path Cert:\* -Recurse | Where-Object { $_.Subject -like "*Zscaler Root*" }
+    WIN_TMP_CERT_DIR=$(powershell.exe -NoProfile -Command '
+        $outDir = "$env:TEMP\wsl_certs"
+        New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+        $certs = Get-ChildItem -Path Cert:\CurrentUser\Root, Cert:\CurrentUser\CA | Where-Object { $_.Subject -like "*Zscaler Root*" }
         foreach ($cert in $certs) {
-            $thumbprint = $cert.Thumbprint
-            $certExportPath =  "$outDir\" + $thumbprint + ".crt"
-            Get-ChildItem -Path Cert:\LocalMachine\Root\ | Where-Object{$_.Thumbprint -eq $thumbprint} | Export-Certificate -Type cer -FilePath "$certExportPath" | out-null
+            $derPath = "$outDir\" + $cert.Thumbprint + ".der"
+            $pemPath = "$outDir\" + $cert.Thumbprint + ".crt"
+            $cert | Export-Certificate -Type CERT -FilePath $derPath | Out-Null
+            certutil -encode $derPath $pemPath | Out-Null
+            Remove-Item $derPath
         }
-    '
+        Write-Host $outDir -NoNewline
+    ')
 
-    # Convert paths and install certificates
+    WIN_TMP_DIR_WSL_PATH=$(wslpath "$WIN_TMP_DIR")
+    cp "$WIN_TMP_DIR_WSL_PATH"/*.crt "$TMP_CERT_DIR/" 2>/dev/null
+    rm -rf "$WIN_TMP_DIR_WSL_PATH"
+
     CERT_COUNT=0
     for cert in "$TMP_CERT_DIR"/*.crt; do
         if [ -f "$cert" ]; then
-            # Convert DER to PEM if needed and copy to system store
             CERT_NAME=$(basename "$cert")
-            if openssl x509 -in "$cert" -inform DER -out "/tmp/${CERT_NAME}.pem" 2>/dev/null; then
-                sudo cp "/tmp/${CERT_NAME}.pem" "/usr/local/share/ca-certificates/${CERT_NAME}"
-                rm "/tmp/${CERT_NAME}.pem"
-            else
-                # Already PEM format
-                sudo cp "$cert" "/usr/local/share/ca-certificates/${CERT_NAME}"
-            fi
+            sudo cp "$cert" "/usr/local/share/ca-certificates/${CERT_NAME}"
             ((CERT_COUNT++))
         fi
     done
