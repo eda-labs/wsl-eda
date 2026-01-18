@@ -25,7 +25,7 @@ function import_corporate_certs {
         Write-Host $outDir -NoNewline
     ')
 
-    WIN_TMP_DIR_WSL_PATH=$(wslpath "$WIN_TMP_DIR")
+    WIN_TMP_DIR_WSL_PATH=$(wslpath "$WIN_TMP_CERT_DIR")
     cp "$WIN_TMP_DIR_WSL_PATH"/*.crt "$TMP_CERT_DIR/" 2>/dev/null
     rm -rf "$WIN_TMP_DIR_WSL_PATH"
 
