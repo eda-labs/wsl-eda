@@ -33,22 +33,14 @@ Restart your PC, and WSL2 should be installed.
 
 ### Version Check
 
-Run `wsl --version` to ensure WSL2 is enabled. Version should be 2.4.4.0 or higher.
+Run `wsl --version` to ensure WSL2 is enabled. Version should be 2.4.4 or higher.
 
 ## First Launch
-
-On first launch, the setup wizard will:
-
-1. Check internet connectivity and offer proxy configuration if needed
-2. Offer to install FiraCode Nerd Font for proper terminal display
-3. Import SSH keys from your Windows host (or generate new ones)
-
 The shell is pre-configured with:
 - **zsh** with Oh My Zsh
 - **Starship** prompt (shows git branch, kubernetes context, etc.)
 - Syntax highlighting and autosuggestions
 
-To run the setup again: `/etc/oobe.sh`
 
 > [!IMPORTANT]
 > After installation, restart Windows Terminal to apply font settings.
@@ -62,24 +54,16 @@ eda-up
 ```
 
 This will:
-1. Clone the [EDA playground](https://github.com/nokia-eda/playground) to `~/playground`
-2. Download required tools (kind, kubectl, kpt, etc.)
-3. Create a KIND cluster and deploy EDA
-4. Load a simulated network topology
+1. Clone the [EDA playground](https://github.com/nokia-eda/playground) to `~/nokia-eda/playground`
+2. Create a KIND cluster and deploy EDA
+3. Load a simulated network topology
 
 First run takes several minutes. Once complete, access EDA at **https://localhost:9443** (admin/admin).
 
-### Options
-
-```bash
-eda-up --status     # Check running environment
-eda-up --clean      # Fresh start (removes cluster)
-eda-up --no-simulate  # Skip loading topology
-```
 
 ### Resource Requirements
 
-EDA is configured to run on systems with **4+ vCPUs**. CPU requests are set to minimal values (10m) allowing services to burst as needed.
+EDA requires **12GB of RAM** and **4+ vCPUs**. Configure memory allocation in **WSL Settings** (search for "WSL Settings" in the Start menu).
 
 ## VS Code Integration
 
@@ -93,41 +77,9 @@ This will:
 1. Install the [WSL extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-wsl) if not present
 2. Configure the terminal font for proper Nerd Font rendering
 
-### Options
-
-```bash
-eda-vscode --check    # Check current configuration
-eda-vscode --open     # Setup and open VS Code in current directory
-eda-vscode --font     # Configure terminal font only
-```
 
 To open a directory in VS Code after setup, simply run `code .` from any directory.
 
-## Docker Desktop
-
-If you have Docker Desktop installed, you **must** disable WSL integration for the EDA distro:
-
-1. Open Docker Desktop settings
-2. Go to Resources → WSL integration
-3. Ensure 'EDA' has integration **disabled**
-
-![Docker Desktop integration screenshot](./images/docker_desktop_integration.png)
-
-## DevPod
-
-[DevPod](https://devpod.sh/) enables one-click lab experiences using devcontainers.
-
-To use with EDA WSL:
-
-1. Ensure EDA WSL is running in the background
-2. Create an **SSH** provider with:
-   - Host: `eda@localhost`
-   - Port: `2222`
-
-![DevPod settings screenshot](./images/devpod_settings.png)
-
-> [!NOTE]
-> You may need to enable 'Use Builtin SSH' in DevPod settings.
 
 ## Developers
 
