@@ -51,6 +51,18 @@ dump_system_info() {
     echo "  Disk: $(df -h / | awk 'NR==2 {print $4}') available"
 }
 
+check_memory() {
+    local mem_kb=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
+    local mem_gb=$((mem_kb / 1024 / 1024))
+    local required_gb=12
+
+    if [ "$mem_gb" -lt "$required_gb" ]; then
+        log_error "Insufficient memory: ${mem_gb}GB available, ${required_gb}GB required"
+        log_error "Configure memory in WSL Settings (search 'WSL Settings' in Start menu)"
+        exit 1
+    fi
+}
+
 clone_playground() {
     if [ -d "$PLAYGROUND_DIR" ]; then
         log "Playground directory exists, updating..."
@@ -192,6 +204,7 @@ fi
 
 # Main execution
 dump_system_info
+check_memory
 ensure_docker_ready
 
 # Clean if requested
