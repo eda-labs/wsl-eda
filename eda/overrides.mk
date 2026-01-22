@@ -41,37 +41,5 @@ patch-wsl-engineconfig:
 		printf "\033[32mEngineConfig patched\033[0m\n"; \
 	fi
 
-# Inject Zscaler/corporate CA certificates into EDA trust bundles
-# Uses kubectl patch to add the CA source to existing Bundles
-.PHONY: inject-zscaler-ca
-inject-zscaler-ca: | $(KUBECTL)
-	@printf "\033[34mInjecting corporate CA certificates into EDA trust bundles...\033[0m\n"
-	@if [ -f /etc/ssl/certs/ca-certificates.crt ]; then \
-		$(KUBECTL) create configmap zscaler-external-ca -n $(EDA_CORE_NAMESPACE) \
-			--from-file=ca-bundle.pem=/etc/ssl/certs/ca-certificates.crt \
-			--dry-run=client -o yaml | $(KUBECTL) apply -f - ; \
-		for bundle in eda-internal-trust-bundle eda-api-trust-bundle eda-node-trust-bundle; do \
-			if $(KUBECTL) get bundle $$bundle >/dev/null 2>&1; then \
-				if ! $(KUBECTL) get bundle $$bundle -o jsonpath='{.spec.sources[*].configMap.name}' | grep -q zscaler-external-ca; then \
-					$(KUBECTL) patch bundle $$bundle --type='json' \
-						-p='[{"op": "add", "path": "/spec/sources/-", "value": {"configMap": {"name": "zscaler-external-ca", "key": "ca-bundle.pem"}}}]' && \
-					printf "\033[32mPatched bundle $$bundle\033[0m\n"; \
-				else \
-					printf "\033[33mBundle $$bundle already has zscaler-external-ca source\033[0m\n"; \
-				fi; \
-			else \
-				printf "\033[33mBundle $$bundle not found, skipping\033[0m\n"; \
-			fi; \
-		done; \
-		printf "\033[32mCorporate CA certificates injected into trust bundles.\033[0m\n"; \
-	else \
-		printf "\033[33mNo CA bundle found at /etc/ssl/certs/ca-certificates.crt, skipping.\033[0m\n"; \
-	fi
-
-# Hook inject-zscaler-ca to run BEFORE eda-is-core-ready checks pods
-# This ensures pods get the CA certs in their trust bundles before they're verified
-# Order: eda-install-core (creates Bundles) -> inject-zscaler-ca -> eda-is-core-ready (waits for pods)
-eda-is-core-ready: inject-zscaler-ca
-
 # Make configure-try-eda-params depend on WSL engine config patch
 configure-try-eda-params: patch-wsl-engineconfig

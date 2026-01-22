@@ -81,4 +81,5 @@ COPY --chown=eda:eda ./zsh/starship.toml /home/eda/.config/starship.toml
 # Copy EDA configuration files and scripts
 COPY --chmod=755 ./eda-up /usr/local/bin/eda-up
 COPY --chmod=755 ./eda-vscode /usr/local/bin/eda-vscode
+COPY --chmod=755 ./proxyman.sh /usr/local/bin/proxyman
 COPY --chmod=644 ./eda/ /opt/eda/

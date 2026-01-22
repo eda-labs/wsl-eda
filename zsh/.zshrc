@@ -1,3 +1,6 @@
+# Source system-wide proxy settings if present
+[[ -f /etc/profile.d/custom_export.sh ]] && source /etc/profile.d/custom_export.sh
+
 # Path to oh-my-zsh installation
 export ZSH="$HOME/.oh-my-zsh"
 
