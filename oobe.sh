@@ -35,7 +35,7 @@ function auto_configure_proxy {
     echo "NO_PROXY=$NO_PROXY" | sudo tee -a /etc/proxy.conf > /dev/null
 
     # Configure system-wide proxy silently (answer 'y' to Docker restart prompt)
-    yes y | SUDO_USER=eda SUDO_UID=1000 SUDO_GID=1000 sudo proxyman set > /dev/null 2>&1
+    yes y | sudo SUDO_USER=eda SUDO_UID=1000 SUDO_GID=1000 proxyman set > /dev/null 2>&1
     eval "$(sudo /usr/local/bin/proxyman export)"
 
     echo -e "\033[32mconfigured\033[0m"
@@ -60,7 +60,7 @@ function prompt_proxy {
         echo "NO_PROXY=$NO_PROXY" | sudo tee -a /etc/proxy.conf > /dev/null
 
         echo -e "\nConfiguring system-wide proxy using proxyman..."
-        yes y | SUDO_USER=eda SUDO_UID=1000 SUDO_GID=1000 sudo proxyman set > /dev/null 2>&1
+        yes y | sudo SUDO_USER=eda SUDO_UID=1000 SUDO_GID=1000 proxyman set > /dev/null 2>&1
         echo -e "\nProxy has been set. You can run 'sudo proxyman unset' to remove it."
         eval "$(sudo /usr/local/bin/proxyman export)"
     else
