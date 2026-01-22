@@ -44,3 +44,22 @@ patch-wsl-engineconfig:
 # Hook into try-eda configuration
 .PHONY: configure-try-eda-params
 configure-try-eda-params:: patch-wsl-engineconfig
+
+# Inject Zscaler/corporate CA certificates into EDA trust bundles
+# This must run AFTER eda-install-core (when Bundles exist)
+.PHONY: inject-zscaler-ca
+inject-zscaler-ca:
+	@printf "\033[34mInjecting Zscaler CA into EDA trust bundles...\033[0m\n"
+	@if [ -f /etc/ssl/certs/ca-certificates.crt ]; then \
+		kubectl create configmap zscaler-external-ca -n eda-system \
+			--from-file=ca-bundle.pem=/etc/ssl/certs/ca-certificates.crt \
+			--dry-run=client -o yaml | kubectl apply -f -; \
+		kubectl apply -f $(PLAYGROUND_DIR)/zscaler-ca-bundle-patch.yaml; \
+		printf "\033[32mZscaler CA injected. Trust bundles will be updated by trust-manager.\033[0m\n"; \
+	else \
+		printf "\033[33mNo CA bundle found at /etc/ssl/certs/ca-certificates.crt, skipping.\033[0m\n"; \
+	fi
+
+# Hook into eda-install-core to inject certs after Bundles are created
+.PHONY: eda-install-core
+eda-install-core:: inject-zscaler-ca
