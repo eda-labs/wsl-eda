@@ -78,6 +78,10 @@ COPY --chown=eda:eda ./zsh/.zshrc /home/eda/.zshrc
 RUN mkdir -p /home/eda/.config
 COPY --chown=eda:eda ./zsh/starship.toml /home/eda/.config/starship.toml
 
+# VS Code machine settings (ensures zsh is default terminal in VS Code)
+RUN mkdir -p /home/eda/.vscode-server/data/Machine
+COPY --chown=eda:eda ./vscode-settings.json /home/eda/.vscode-server/data/Machine/settings.json
+
 # Copy EDA configuration files and scripts
 COPY --chmod=755 ./eda-up /usr/local/bin/eda-up
 COPY --chmod=755 ./eda-vscode /usr/local/bin/eda-vscode
