@@ -10,7 +10,7 @@ YELLOW='\033[33m'
 RED='\033[31m'
 NC='\033[0m'
 
-PLAYGROUND_DIR="$HOME/playground"
+PLAYGROUND_DIR="/home/eda/playground"
 EDA_CONFIG_DIR="/opt/eda"
 
 log() {
