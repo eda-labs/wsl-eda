@@ -80,6 +80,17 @@ This will:
 
 To open a directory in VS Code after setup, simply run `code .` from any directory.
 
+## Corporate Proxy
+
+If the first-run setup detects no internet connectivity, it will prompt you to configure proxy settings. This uses `proxyman` to configure proxies for the shell, apt, wget, and Docker.
+
+To modify proxy settings later:
+
+```bash
+sudo proxyman set      # Configure proxy
+sudo proxyman unset    # Remove proxy
+sudo proxyman list     # View current settings
+```
 
 ## Developers
 
