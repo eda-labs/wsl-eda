@@ -8,24 +8,25 @@ function ensure_interop {
 }
 
 function auto_configure_proxy {
-    PAC_URL="http://proxyconf.glb.nokia.com/proxy.pac"
+    PROXY_HOST="globalproxy.glb.nokia.com"
+    PROXY_PORT="8080"
 
-    # Try to fetch the PAC file
-    PAC_CONTENT=$(curl -fsSL --connect-timeout 5 "$PAC_URL" 2>/dev/null)
-    if [ -z "$PAC_CONTENT" ]; then
+    echo -n "Detecting proxy... "
+
+    # Check if the proxy hostname resolves
+    if ! dig +short "$PROXY_HOST" | grep -q .; then
+        echo -e "\033[33mnot found\033[0m"
         return 1
     fi
 
-    # Extract proxy from PAC file (look for PROXY host:port pattern)
-    # PAC files typically have: var proxy="PROXY host:port;"
-    PROXY_HOST_PORT=$(echo "$PAC_CONTENT" | grep -oP 'PROXY\s+\K[^";]+' | head -1)
-
-    if [ -z "$PROXY_HOST_PORT" ]; then
+    # Test if the proxy is reachable
+    if ! curl -x "http://${PROXY_HOST}:${PROXY_PORT}" -s -o /dev/null --connect-timeout 5 http://www.github.com 2>/dev/null; then
+        echo -e "\033[33mfailed\033[0m"
         return 1
     fi
 
-    # Build proxy URL and NO_PROXY list (based on PAC file DIRECT entries)
-    PROXY_URL="http://${PROXY_HOST_PORT}"
+    # Build proxy URL and NO_PROXY list
+    PROXY_URL="http://${PROXY_HOST}:${PROXY_PORT}"
     NO_PROXY="localhost,127.0.0.1,::1,.nokia.net,.nokia.com,.int.nokia.com,.nsn-net.net,.nsn-intra.net,.inside.nsn.com,.noklab.net,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
 
     # Write proxy configuration
@@ -37,7 +38,7 @@ function auto_configure_proxy {
     yes y | SUDO_USER=eda SUDO_UID=1000 SUDO_GID=1000 sudo proxyman set > /dev/null 2>&1
     eval "$(sudo /usr/local/bin/proxyman export)"
 
-    echo -e "\033[32mProxy auto-configured from PAC file.\033[0m"
+    echo -e "\033[32mconfigured\033[0m"
     return 0
 }
 
@@ -221,11 +222,11 @@ echo -e "\033[32m  Welcome to EDA WSL\033[0m\n"
 ensure_interop
 
 # Check connectivity before anything else
-if ! curl -fsSL --connect-timeout 5 https://github.com -o /dev/null 2>&1; then
+if ! curl -fsSL --connect-timeout 5 https://github.com >/dev/null 2>&1; then
     # Try auto-configuring proxy from Nokia PAC file
     if auto_configure_proxy; then
         # Verify connectivity now works
-        if ! curl -fsSL --connect-timeout 5 https://github.com -o /dev/null 2>&1; then
+        if ! curl -fsSL --connect-timeout 5 https://github.com >/dev/null 2>&1; then
             echo -e "\033[33mAuto-configured proxy didn't work. Please configure manually.\033[0m"
             prompt_proxy
         fi
