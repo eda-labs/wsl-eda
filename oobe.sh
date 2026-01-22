@@ -7,6 +7,40 @@ function ensure_interop {
     fi
 }
 
+function auto_configure_proxy {
+    PAC_URL="http://proxyconf.glb.nokia.com/proxy.pac"
+
+    # Try to fetch the PAC file
+    PAC_CONTENT=$(curl -fsSL --connect-timeout 5 "$PAC_URL" 2>/dev/null)
+    if [ -z "$PAC_CONTENT" ]; then
+        return 1
+    fi
+
+    # Extract proxy from PAC file (look for PROXY host:port pattern)
+    # PAC files typically have: var proxy="PROXY host:port;"
+    PROXY_HOST_PORT=$(echo "$PAC_CONTENT" | grep -oP 'PROXY\s+\K[^";]+' | head -1)
+
+    if [ -z "$PROXY_HOST_PORT" ]; then
+        return 1
+    fi
+
+    # Build proxy URL and NO_PROXY list (based on PAC file DIRECT entries)
+    PROXY_URL="http://${PROXY_HOST_PORT}"
+    NO_PROXY="localhost,127.0.0.1,::1,.nokia.net,.nokia.com,.int.nokia.com,.nsn-net.net,.nsn-intra.net,.inside.nsn.com,.noklab.net,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+
+    # Write proxy configuration
+    echo "HTTP_PROXY=$PROXY_URL" | sudo tee /etc/proxy.conf > /dev/null
+    echo "HTTPS_PROXY=$PROXY_URL" | sudo tee -a /etc/proxy.conf > /dev/null
+    echo "NO_PROXY=$NO_PROXY" | sudo tee -a /etc/proxy.conf > /dev/null
+
+    # Configure system-wide proxy silently (answer 'y' to Docker restart prompt)
+    yes y | SUDO_USER=eda SUDO_UID=1000 SUDO_GID=1000 sudo proxyman set > /dev/null 2>&1
+    eval "$(sudo /usr/local/bin/proxyman export)"
+
+    echo -e "\033[32mProxy auto-configured from PAC file.\033[0m"
+    return 0
+}
+
 function prompt_proxy {
     read -p "Are you behind a proxy that you want to configure now? (y/N) " -n 1 -r
     echo
@@ -25,7 +59,7 @@ function prompt_proxy {
         echo "NO_PROXY=$NO_PROXY" | sudo tee -a /etc/proxy.conf > /dev/null
 
         echo -e "\nConfiguring system-wide proxy using proxyman..."
-        SUDO_USER=eda SUDO_UID=1000 SUDO_GID=1000 sudo proxyman set > /dev/null 2>&1
+        yes y | SUDO_USER=eda SUDO_UID=1000 SUDO_GID=1000 sudo proxyman set > /dev/null 2>&1
         echo -e "\nProxy has been set. You can run 'sudo proxyman unset' to remove it."
         eval "$(sudo /usr/local/bin/proxyman export)"
     else
@@ -188,8 +222,18 @@ ensure_interop
 
 # Check connectivity before anything else
 if ! curl -fsSL --connect-timeout 5 https://github.com -o /dev/null 2>&1; then
-    echo -e "\nIt seems we couldn't connect to the internet directly. You might be behind a proxy."
-    prompt_proxy
+    # Try auto-configuring proxy from Nokia PAC file
+    if auto_configure_proxy; then
+        # Verify connectivity now works
+        if ! curl -fsSL --connect-timeout 5 https://github.com -o /dev/null 2>&1; then
+            echo -e "\033[33mAuto-configured proxy didn't work. Please configure manually.\033[0m"
+            prompt_proxy
+        fi
+    else
+        # PAC not available, fall back to manual prompt
+        echo -e "\nIt seems we couldn't connect to the internet directly. You might be behind a proxy."
+        prompt_proxy
+    fi
 fi
 
 # Import corporate certificates if present
