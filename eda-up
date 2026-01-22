@@ -10,7 +10,7 @@ YELLOW='\033[33m'
 RED='\033[31m'
 NC='\033[0m'
 
-PLAYGROUND_DIR="$HOME/nokia-eda/playground"
+PLAYGROUND_DIR="$HOME/playground"
 EDA_CONFIG_DIR="/opt/eda"
 
 log() {
@@ -86,6 +86,14 @@ setup_overrides() {
         cp "$EDA_CONFIG_DIR/engine-config-patch.yaml" "$PLAYGROUND_DIR/" 2>/dev/null || true
     fi
 
+    # Patch Makefile to include overrides.mk automatically
+    if [ -f "$PLAYGROUND_DIR/Makefile" ] && ! grep -q "include.*overrides.mk" "$PLAYGROUND_DIR/Makefile"; then
+        log "Patching Makefile to include WSL overrides..."
+        echo '' >> "$PLAYGROUND_DIR/Makefile"
+        echo '# WSL override support - automatically include overrides.mk if present' >> "$PLAYGROUND_DIR/Makefile"
+        echo '-include overrides.mk' >> "$PLAYGROUND_DIR/Makefile"
+    fi
+
     log_success "Overrides configured"
 }
 
@@ -96,10 +104,8 @@ start_eda() {
     log "This may take several minutes on first run..."
 
     # Run make try-eda with WSL-specific settings
-    # Using KIND (not k3d) as playground defaults to KIND
-    # NO_LB=true if MetalLB causes issues in WSL
+    # overrides.mk is automatically included via Makefile patch
     make try-eda \
-        OVERRIDE_MK="$PLAYGROUND_DIR/overrides.mk" \
         KPT_SETTERS_FILE="$PLAYGROUND_DIR/wsl-kpt-setters.yaml" \
         SIMULATE=true
 }
@@ -239,10 +245,6 @@ cd "$PLAYGROUND_DIR"
 log "Starting EDA environment..."
 log "This may take several minutes on first run..."
 
-# Run make try-eda
-if [ -f "$PLAYGROUND_DIR/overrides.mk" ]; then
-    make try-eda OVERRIDE_MK="$PLAYGROUND_DIR/overrides.mk" $MAKE_ARGS
-else
-    make try-eda $MAKE_ARGS
-fi
+# Run make try-eda (overrides.mk is included automatically via Makefile patch)
+make try-eda $MAKE_ARGS
 
