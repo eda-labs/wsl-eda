@@ -108,4 +108,8 @@ COPY --chown=eda:eda ./vscode-settings.json /home/eda/.vscode-server/data/Machin
 COPY --chmod=755 ./eda-up /usr/local/bin/eda-up
 COPY --chmod=755 ./eda-vscode /usr/local/bin/eda-vscode
 COPY --chmod=755 ./proxyman.sh /usr/local/bin/proxyman
+COPY --chmod=755 ./entrypoint-dind.sh /usr/local/bin/entrypoint-dind
 COPY --chmod=644 ./eda/ /opt/eda/
+
+# Default command for DIND mode
+CMD ["/usr/local/bin/entrypoint-dind"]

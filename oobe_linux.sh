@@ -244,6 +244,33 @@ function install_shell_config {
     echo -e "\033[32mShell configuration installed.\033[0m"
 }
 
+function ensure_dockerd_running {
+    echo -e "\033[34mEnsuring Docker daemon is running...\033[0m"
+
+    if docker info >/dev/null 2>&1; then
+        echo -e "\033[32mDocker daemon is already running.\033[0m"
+        return 0
+    fi
+
+    echo "Starting dockerd..."
+    sudo sh -c 'dockerd &>/var/log/dockerd.log &'
+
+    # Wait for dockerd to be ready
+    local max_attempts=30
+    local attempt=0
+    while ! docker info >/dev/null 2>&1; do
+        attempt=$((attempt + 1))
+        if [ $attempt -ge $max_attempts ]; then
+            echo -e "\033[31mFailed to start Docker daemon after $max_attempts attempts.\033[0m"
+            echo "Check /var/log/dockerd.log for errors."
+            return 1
+        fi
+        sleep 1
+    done
+
+    echo -e "\033[32mDocker daemon started successfully.\033[0m"
+}
+
 function setup_ssh_keys {
     echo -e "\033[34mSetting up SSH...\033[0m"
 
@@ -313,6 +340,9 @@ install_shell_config
 
 # Setup SSH keys
 setup_ssh_keys
+
+# Start Docker daemon (for DIND environments)
+ensure_dockerd_running
 
 # Pre-clone and configure EDA playground
 echo -e "\033[34m\nSetting up EDA playground...\033[0m"

@@ -140,13 +140,10 @@ docker build --network=host -t eda-wsl .
 docker run -it --privileged --network=host --name eda-dind eda-wsl
 ```
 
-Inside the container, start the Docker daemon and run the setup:
-
-```bash
-sudo dockerd &>/var/log/dockerd.log &
-sleep 3
-/etc/oobe_linux.sh
-```
+The container automatically:
+1. Starts the Docker daemon
+2. Runs the first-time setup (downloads tools, configures shell)
+3. Drops you into zsh with completions enabled
 
 > **Note:** The `--network=host` flag is required if your corporate proxy performs SSL inspection based on source IP ranges (common with Zscaler/Fortinet proxies that treat Docker bridge network differently).
 
