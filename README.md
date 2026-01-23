@@ -137,7 +137,10 @@ For Linux environments or CI pipelines, you can run the image as a true DIND con
 ```bash
 docker build --network=host -t eda-wsl .
 
-docker run -it --privileged --network=host --name eda-dind eda-wsl
+docker run -it --privileged \
+  --cgroupns=host \
+  -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
+  --name eda-dind eda-wsl
 ```
 
 The container automatically:
@@ -145,14 +148,14 @@ The container automatically:
 2. Runs the first-time setup (downloads tools, configures shell)
 3. Drops you into zsh with completions enabled
 
-> **Note:** The `--network=host` flag is required if your corporate proxy performs SSL inspection based on source IP ranges (common with Zscaler/Fortinet proxies that treat Docker bridge network differently).
+Add `--network=host` if your corporate proxy performs SSL inspection based on source IP (common with Zscaler/Fortinet proxies), but note that port 9443 must be free on the host.
 
 #### Alternative: Using Host Docker Socket
 
 If you prefer to use the host's Docker daemon instead of running a separate one:
 
 ```bash
-docker run -it --privileged --network=host --name eda-dind \
+docker run -it --privileged --name eda-dind \
   -v /var/run/docker.sock:/var/run/docker.sock \
   --group-add $(stat -c '%g' /var/run/docker.sock) \
   eda-wsl
