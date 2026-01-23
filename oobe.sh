@@ -32,7 +32,8 @@ function auto_configure_proxy {
     echo "  1) EU   (Europe)"
     echo "  2) US   (Americas)"
     echo "  3) APAC (Asia-Pacific)"
-    read -p "Enter choice [1-3]: " -n 1 -r REGION_CHOICE
+    echo "  4) IN (India)"
+    read -p "Enter choice [1-4]: " -n 1 -r REGION_CHOICE
     echo
 
     case $REGION_CHOICE in
@@ -45,8 +46,12 @@ function auto_configure_proxy {
             echo -e "Using US proxy: $PROXY_HOST"
             ;;
         3)
-            PROXY_HOST="10.158.100.29 "
+            PROXY_HOST="10.158.100.29"
             echo -e "Using APAC proxy: $PROXY_HOST"
+            ;;
+        4)
+            PROXY_HOST="10.158.100.6"
+            echo -e "Using India proxy: $PROXY_HOST"
             ;;
         *)
             echo -e "\033[33mInvalid choice. Defaulting to EU proxy.\033[0m"
