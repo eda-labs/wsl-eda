@@ -37,20 +37,20 @@ function auto_configure_proxy {
 
     case $REGION_CHOICE in
         1)
-            PROXY_HOST="fihel1d-proxy.emea.nsn-net.net"
+            PROXY_HOST="10.158.100.1"
             echo -e "Using EU proxy: $PROXY_HOST"
             ;;
         2)
-            PROXY_HOST="usdal1a-proxy.americas.nsn-net.net"
+            PROXY_HOST="10.158.100.4"
             echo -e "Using US proxy: $PROXY_HOST"
             ;;
         3)
-            PROXY_HOST="sgsinaa-proxyfw001.apac.nsn-net.net"
+            PROXY_HOST="10.158.100.29 "
             echo -e "Using APAC proxy: $PROXY_HOST"
             ;;
         *)
             echo -e "\033[33mInvalid choice. Defaulting to EU proxy.\033[0m"
-            PROXY_HOST="fihel1d-proxy.emea.nsn-net.net"
+            PROXY_HOST="10.158.100.1"
             ;;
     esac
 
