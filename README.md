@@ -84,7 +84,20 @@ To open a directory in VS Code after setup, simply run `code .` from any directo
 
 If the first-run setup detects no internet connectivity, it will prompt you to configure proxy settings. This uses `proxyman` to configure proxies for the shell, apt, wget, and Docker.
 
-To modify proxy settings later:
+### Re-select Proxy Region
+
+To change your proxy region or find the fastest proxy for your location:
+
+```bash
+/etc/oobe.sh --proxy
+```
+
+This will:
+1. Prompt you to select your region (EU, NAM, APJ, India, LAT, MEA, China)
+2. Ping all available proxies in that region in parallel
+3. Automatically select and configure the fastest responding proxy
+
+### Manual Proxy Management
 
 ```bash
 sudo proxyman set      # Configure proxy

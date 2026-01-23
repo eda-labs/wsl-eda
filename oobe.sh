@@ -7,6 +7,119 @@ function ensure_interop {
     fi
 }
 
+function find_fastest_proxy {
+    local proxies=("$@")
+    local tmpdir=$(mktemp -d)
+
+    # Ping all proxies in parallel
+    for ip in "${proxies[@]}"; do
+        (
+            result=$(ping -c 1 -W 1 "$ip" 2>/dev/null | grep 'time=' | sed -E 's/.*time=([0-9.]+).*/\1/')
+            [ -n "$result" ] && echo "$result $ip" > "$tmpdir/$ip"
+        ) &
+    done
+    wait
+
+    # Find the fastest one
+    local fastest=$(cat "$tmpdir"/* 2>/dev/null | sort -n | head -1 | awk '{print $2}')
+    rm -rf "$tmpdir"
+
+    echo "$fastest"
+}
+
+function select_proxy_region {
+    PROXY_PORT="8080"
+
+    # Ask user for their region
+    echo -e "\nPlease select your region:"
+    echo "  1) EU   (Europe)"
+    echo "  2) NAM  (North America)"
+    echo "  3) APJ  (Asia-Pacific & Japan)"
+    echo "  4) IN   (India)"
+    echo "  5) LAT  (Latin America)"
+    echo "  6) MEA  (Middle East & Africa)"
+    echo "  7) CN   (Greater China)"
+    read -p "Enter choice [1-7]: " -n 1 -r REGION_CHOICE
+    echo
+
+    # Define proxy lists per region (from proxy_list.txt)
+    EU_PROXIES=(10.158.100.1 10.158.100.2 10.158.100.49 10.158.100.51 10.158.100.57 10.158.100.62 10.158.100.63 10.158.100.66 10.158.100.67 10.158.100.72 10.158.100.78 10.158.100.82 10.158.100.95 10.158.100.100 10.158.100.108 10.158.100.112 10.158.100.114 10.158.100.115 10.158.100.120 10.158.100.133 10.158.100.149 10.158.100.153 10.158.100.154 10.158.100.160 10.158.100.167 10.158.100.168 10.158.100.175 10.158.100.179 10.158.100.181 10.158.100.194 10.158.100.202)
+    NAM_PROXIES=(10.158.100.3 10.158.100.4 10.158.100.34 10.158.100.44 10.158.100.58 10.158.100.124 10.158.100.140 10.158.100.173 10.158.100.190)
+    APJ_PROXIES=(10.158.100.9 10.158.101.1 10.158.100.105 10.158.100.111 10.158.100.113 10.158.100.117 10.158.100.118 10.158.100.132 10.158.100.134 10.158.100.136 10.158.100.144 10.158.100.204)
+    IN_PROXIES=(10.158.100.6 10.158.100.7 10.158.100.21 10.158.100.22 10.158.100.23 10.158.100.35 10.158.100.74 10.158.100.80 10.158.100.81 10.158.100.83 10.158.100.89 10.158.100.91 10.158.100.92 10.158.100.99 10.158.100.106 10.158.100.107 10.158.100.121 10.158.100.151 10.158.100.171 10.158.100.174 10.158.100.184 10.158.100.195 10.158.100.196 10.158.100.197)
+    LAT_PROXIES=(10.158.100.5 10.158.100.39 10.158.100.46 10.158.100.98 10.158.100.122 10.158.100.128 10.158.100.129 10.158.100.131 10.158.100.166 10.158.100.180 10.158.100.187)
+    MEA_PROXIES=(10.158.100.60 10.158.100.64 10.158.100.68 10.158.100.69 10.158.100.109 10.158.100.110 10.158.100.123 10.158.100.141 10.158.100.142 10.158.100.150 10.158.100.159 10.158.100.169 10.158.100.201 10.158.100.203)
+    CN_PROXIES=(10.158.100.8 10.158.100.85 10.158.100.101 10.158.100.103 10.158.100.156 10.158.100.157 10.158.100.165)
+
+    case $REGION_CHOICE in
+        1)
+            echo -n "Finding fastest EU proxy... "
+            PROXY_HOST=$(find_fastest_proxy "${EU_PROXIES[@]}")
+            [ -z "$PROXY_HOST" ] && PROXY_HOST="10.158.100.2"
+            echo -e "\033[32m$PROXY_HOST\033[0m"
+            ;;
+        2)
+            echo -n "Finding fastest NAM proxy... "
+            PROXY_HOST=$(find_fastest_proxy "${NAM_PROXIES[@]}")
+            [ -z "$PROXY_HOST" ] && PROXY_HOST="10.158.100.4"
+            echo -e "\033[32m$PROXY_HOST\033[0m"
+            ;;
+        3)
+            echo -n "Finding fastest APJ proxy... "
+            PROXY_HOST=$(find_fastest_proxy "${APJ_PROXIES[@]}")
+            [ -z "$PROXY_HOST" ] && PROXY_HOST="10.158.101.1"
+            echo -e "\033[32m$PROXY_HOST\033[0m"
+            ;;
+        4)
+            echo -n "Finding fastest India proxy... "
+            PROXY_HOST=$(find_fastest_proxy "${IN_PROXIES[@]}")
+            [ -z "$PROXY_HOST" ] && PROXY_HOST="10.158.100.6"
+            echo -e "\033[32m$PROXY_HOST\033[0m"
+            ;;
+        5)
+            echo -n "Finding fastest LAT proxy... "
+            PROXY_HOST=$(find_fastest_proxy "${LAT_PROXIES[@]}")
+            [ -z "$PROXY_HOST" ] && PROXY_HOST="10.158.100.5"
+            echo -e "\033[32m$PROXY_HOST\033[0m"
+            ;;
+        6)
+            echo -n "Finding fastest MEA proxy... "
+            PROXY_HOST=$(find_fastest_proxy "${MEA_PROXIES[@]}")
+            [ -z "$PROXY_HOST" ] && PROXY_HOST="10.158.100.110"
+            echo -e "\033[32m$PROXY_HOST\033[0m"
+            ;;
+        7)
+            echo -n "Finding fastest CN proxy... "
+            PROXY_HOST=$(find_fastest_proxy "${CN_PROXIES[@]}")
+            [ -z "$PROXY_HOST" ] && PROXY_HOST="10.158.100.8"
+            echo -e "\033[32m$PROXY_HOST\033[0m"
+            ;;
+        *)
+            echo -e "\033[33mInvalid choice. Defaulting to EU.\033[0m"
+            echo -n "Finding fastest EU proxy... "
+            PROXY_HOST=$(find_fastest_proxy "${EU_PROXIES[@]}")
+            [ -z "$PROXY_HOST" ] && PROXY_HOST="10.158.100.2"
+            echo -e "\033[32m$PROXY_HOST\033[0m"
+            ;;
+    esac
+
+    # Build proxy URL and NO_PROXY list
+    PROXY_URL="http://${PROXY_HOST}:${PROXY_PORT}"
+    NO_PROXY="localhost,127.0.0.1,::1,.nokia.net,.nokia.com,.int.nokia.com,.nsn-net.net,.nsn-intra.net,.inside.nsn.com,.noklab.net,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+
+    # Write proxy configuration
+    echo "HTTP_PROXY=$PROXY_URL" | sudo tee /etc/proxy.conf > /dev/null
+    echo "HTTPS_PROXY=$PROXY_URL" | sudo tee -a /etc/proxy.conf > /dev/null
+    echo "NO_PROXY=$NO_PROXY" | sudo tee -a /etc/proxy.conf > /dev/null
+
+    # Configure system-wide proxy silently (answer 'y' to Docker restart prompt)
+    yes y | sudo SUDO_USER=eda SUDO_UID=1000 SUDO_GID=1000 proxyman set > /dev/null 2>&1
+    eval "$(sudo /usr/local/bin/proxyman export)"
+
+    echo -e "\033[32mProxy configured: $PROXY_HOST\033[0m"
+    return 0
+}
+
 function auto_configure_proxy {
     PROXY_HOST="globalproxy.glb.nokia.com"
     PROXY_PORT="8080"
@@ -27,53 +140,8 @@ function auto_configure_proxy {
 
     echo -e "\033[32mdetected\033[0m"
 
-    # Ask user for their region
-    echo -e "\nPlease select your region:"
-    echo "  1) EU   (Europe)"
-    echo "  2) US   (Americas)"
-    echo "  3) APAC (Asia-Pacific)"
-    echo "  4) IN (India)"
-    read -p "Enter choice [1-4]: " -n 1 -r REGION_CHOICE
-    echo
-
-    case $REGION_CHOICE in
-        1)
-            PROXY_HOST="10.158.100.1"
-            echo -e "Using EU proxy: $PROXY_HOST"
-            ;;
-        2)
-            PROXY_HOST="10.158.100.4"
-            echo -e "Using US proxy: $PROXY_HOST"
-            ;;
-        3)
-            PROXY_HOST="10.158.100.29"
-            echo -e "Using APAC proxy: $PROXY_HOST"
-            ;;
-        4)
-            PROXY_HOST="10.158.100.6"
-            echo -e "Using India proxy: $PROXY_HOST"
-            ;;
-        *)
-            echo -e "\033[33mInvalid choice. Defaulting to EU proxy.\033[0m"
-            PROXY_HOST="10.158.100.1"
-            ;;
-    esac
-
-    # Build proxy URL and NO_PROXY list
-    PROXY_URL="http://${PROXY_HOST}:${PROXY_PORT}"
-    NO_PROXY="localhost,127.0.0.1,::1,.nokia.net,.nokia.com,.int.nokia.com,.nsn-net.net,.nsn-intra.net,.inside.nsn.com,.noklab.net,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
-
-    # Write proxy configuration
-    echo "HTTP_PROXY=$PROXY_URL" | sudo tee /etc/proxy.conf > /dev/null
-    echo "HTTPS_PROXY=$PROXY_URL" | sudo tee -a /etc/proxy.conf > /dev/null
-    echo "NO_PROXY=$NO_PROXY" | sudo tee -a /etc/proxy.conf > /dev/null
-
-    # Configure system-wide proxy silently (answer 'y' to Docker restart prompt)
-    yes y | sudo SUDO_USER=eda SUDO_UID=1000 SUDO_GID=1000 proxyman set > /dev/null 2>&1
-    eval "$(sudo /usr/local/bin/proxyman export)"
-
-    echo -e "\033[32mProxy configured\033[0m"
-    return 0
+    select_proxy_region
+    return $?
 }
 
 function prompt_proxy {
@@ -235,6 +303,12 @@ function import_ssh_keys {
 
     echo -e "\033[32mSSH keys configured. You can SSH with: 'ssh eda@localhost -p 2222'\033[0m"
 }
+
+# --- Handle command line arguments ---
+if [ "$1" = "--proxy" ] || [ "$1" = "-p" ]; then
+    select_proxy_region
+    exit $?
+fi
 
 # --- Start OOBE ---
 clear
