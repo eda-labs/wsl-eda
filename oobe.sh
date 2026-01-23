@@ -25,6 +25,35 @@ function auto_configure_proxy {
         return 1
     fi
 
+    echo -e "\033[32mdetected\033[0m"
+
+    # Ask user for their region
+    echo -e "\nPlease select your region:"
+    echo "  1) EU   (Europe)"
+    echo "  2) US   (Americas)"
+    echo "  3) APAC (Asia-Pacific)"
+    read -p "Enter choice [1-3]: " -n 1 -r REGION_CHOICE
+    echo
+
+    case $REGION_CHOICE in
+        1)
+            PROXY_HOST="fihel1d-proxy.emea.nsn-net.net"
+            echo -e "Using EU proxy: $PROXY_HOST"
+            ;;
+        2)
+            PROXY_HOST="usdal1a-proxy.americas.nsn-net.net"
+            echo -e "Using US proxy: $PROXY_HOST"
+            ;;
+        3)
+            PROXY_HOST="sgsinaa-proxyfw001.apac.nsn-net.net"
+            echo -e "Using APAC proxy: $PROXY_HOST"
+            ;;
+        *)
+            echo -e "\033[33mInvalid choice. Defaulting to EU proxy.\033[0m"
+            PROXY_HOST="fihel1d-proxy.emea.nsn-net.net"
+            ;;
+    esac
+
     # Build proxy URL and NO_PROXY list
     PROXY_URL="http://${PROXY_HOST}:${PROXY_PORT}"
     NO_PROXY="localhost,127.0.0.1,::1,.nokia.net,.nokia.com,.int.nokia.com,.nsn-net.net,.nsn-intra.net,.inside.nsn.com,.noklab.net,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
@@ -38,7 +67,7 @@ function auto_configure_proxy {
     yes y | sudo SUDO_USER=eda SUDO_UID=1000 SUDO_GID=1000 proxyman set > /dev/null 2>&1
     eval "$(sudo /usr/local/bin/proxyman export)"
 
-    echo -e "\033[32mconfigured\033[0m"
+    echo -e "\033[32mProxy configured\033[0m"
     return 0
 }
 
