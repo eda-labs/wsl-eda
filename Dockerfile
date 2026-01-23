@@ -30,6 +30,7 @@ RUN apt update -y && apt upgrade -y && \
 COPY --chmod=644 --chown=root:root ./wsl-distribution.conf /etc/wsl-distribution.conf
 COPY --chmod=644 --chown=root:root ./wsl.conf /etc/wsl.conf
 COPY --chmod=755 ./oobe.sh /etc/oobe.sh
+COPY --chmod=755 ./oobe_linux.sh /etc/oobe_linux.sh
 COPY ./eda_icon.ico /usr/lib/wsl/eda_icon.ico
 COPY ./terminal-profile.json /usr/lib/wsl/terminal-profile.json
 
@@ -60,7 +61,8 @@ RUN if [ -n "$HTTP_PROXY" ]; then \
     fi
 
 # Install Docker and clean up apt cache
-RUN curl -sL https://containerlab.dev/setup | bash -s "install-docker" && \
+RUN apt-get update && \
+    curl -sL https://containerlab.dev/setup | bash -s "install-docker" && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 

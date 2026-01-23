@@ -400,6 +400,11 @@ import_ssh_keys
 # Pre-clone and configure EDA playground
 echo -e "\033[34m\nSetting up EDA playground...\033[0m"
 eda-up --setup-only
+
+# Download tools (kubectl, kind, etc.)
+echo -e "\033[34mDownloading tools...\033[0m"
+cd /home/eda/playground && bash -c 'make download-tools'
+
 chown -R eda:eda /home/eda/playground 2>/dev/null || true
 
 echo -e "\n\033[32mSetup complete! Please restart the terminal.\033[0m"

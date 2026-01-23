@@ -130,6 +130,37 @@ docker rm wsl_export
 wsl --install --from-file /mnt/c/temp/eda.wsl
 ```
 
+### Running as DIND (Docker-in-Docker)
+
+For Linux environments or CI pipelines, you can run the image as a true DIND container with its own Docker daemon:
+
+```bash
+docker build --network=host -t eda-wsl .
+
+docker run -it --privileged --network=host --name eda-dind eda-wsl
+```
+
+Inside the container, start the Docker daemon and run the setup:
+
+```bash
+sudo dockerd &>/var/log/dockerd.log &
+sleep 3
+/etc/oobe_linux.sh
+```
+
+> **Note:** The `--network=host` flag is required if your corporate proxy performs SSL inspection based on source IP ranges (common with Zscaler/Fortinet proxies that treat Docker bridge network differently).
+
+#### Alternative: Using Host Docker Socket
+
+If you prefer to use the host's Docker daemon instead of running a separate one:
+
+```bash
+docker run -it --privileged --network=host --name eda-dind \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  --group-add $(stat -c '%g' /var/run/docker.sock) \
+  eda-wsl
+```
+
 ## Uninstallation
 
 ```powershell
