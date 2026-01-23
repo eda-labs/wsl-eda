@@ -7,24 +7,27 @@ function ensure_interop {
     fi
 }
 
-function find_fastest_proxy {
+function find_working_proxies {
     local proxies=("$@")
     local tmpdir=$(mktemp -d)
+    local port="8080"
 
-    # Ping all proxies in parallel
+    # Test all proxies in parallel via curl (actually verify HTTP works)
     for ip in "${proxies[@]}"; do
         (
-            result=$(ping -c 1 -W 1 "$ip" 2>/dev/null | grep 'time=' | sed -E 's/.*time=([0-9.]+).*/\1/')
-            [ -n "$result" ] && echo "$result $ip" > "$tmpdir/$ip"
+            # Measure time to curl through proxy (use HTTPS to verify full proxy functionality)
+            result=$(curl -x "http://${ip}:${port}" -s -o /dev/null -w "%{time_total}" --connect-timeout 3 --max-time 5 https://github.com 2>/dev/null)
+            # Only record if curl succeeded and we got a time
+            if [ $? -eq 0 ] && [ -n "$result" ]; then
+                echo "$result $ip" > "$tmpdir/$ip"
+            fi
         ) &
     done
     wait
 
-    # Find the fastest one
-    local fastest=$(cat "$tmpdir"/* 2>/dev/null | sort -n | head -1 | awk '{print $2}')
+    # Return all working proxies sorted by speed (fastest first)
+    cat "$tmpdir"/* 2>/dev/null | sort -n | awk '{print $2}'
     rm -rf "$tmpdir"
-
-    echo "$fastest"
 }
 
 function select_proxy_region {
@@ -51,74 +54,75 @@ function select_proxy_region {
     MEA_PROXIES=(10.158.100.60 10.158.100.64 10.158.100.68 10.158.100.69 10.158.100.109 10.158.100.110 10.158.100.123 10.158.100.141 10.158.100.142 10.158.100.150 10.158.100.159 10.158.100.169 10.158.100.201 10.158.100.203)
     CN_PROXIES=(10.158.100.8 10.158.100.85 10.158.100.101 10.158.100.103 10.158.100.156 10.158.100.157 10.158.100.165)
 
+    local region_name=""
+    local fallback=""
+    local -a proxy_list
+
     case $REGION_CHOICE in
-        1)
-            echo -n "Finding fastest EU proxy... "
-            PROXY_HOST=$(find_fastest_proxy "${EU_PROXIES[@]}")
-            [ -z "$PROXY_HOST" ] && PROXY_HOST="10.158.100.2"
-            echo -e "\033[32m$PROXY_HOST\033[0m"
-            ;;
-        2)
-            echo -n "Finding fastest NAM proxy... "
-            PROXY_HOST=$(find_fastest_proxy "${NAM_PROXIES[@]}")
-            [ -z "$PROXY_HOST" ] && PROXY_HOST="10.158.100.4"
-            echo -e "\033[32m$PROXY_HOST\033[0m"
-            ;;
-        3)
-            echo -n "Finding fastest APJ proxy... "
-            PROXY_HOST=$(find_fastest_proxy "${APJ_PROXIES[@]}")
-            [ -z "$PROXY_HOST" ] && PROXY_HOST="10.158.101.1"
-            echo -e "\033[32m$PROXY_HOST\033[0m"
-            ;;
-        4)
-            echo -n "Finding fastest India proxy... "
-            PROXY_HOST=$(find_fastest_proxy "${IN_PROXIES[@]}")
-            [ -z "$PROXY_HOST" ] && PROXY_HOST="10.158.100.6"
-            echo -e "\033[32m$PROXY_HOST\033[0m"
-            ;;
-        5)
-            echo -n "Finding fastest LAT proxy... "
-            PROXY_HOST=$(find_fastest_proxy "${LAT_PROXIES[@]}")
-            [ -z "$PROXY_HOST" ] && PROXY_HOST="10.158.100.5"
-            echo -e "\033[32m$PROXY_HOST\033[0m"
-            ;;
-        6)
-            echo -n "Finding fastest MEA proxy... "
-            PROXY_HOST=$(find_fastest_proxy "${MEA_PROXIES[@]}")
-            [ -z "$PROXY_HOST" ] && PROXY_HOST="10.158.100.110"
-            echo -e "\033[32m$PROXY_HOST\033[0m"
-            ;;
-        7)
-            echo -n "Finding fastest CN proxy... "
-            PROXY_HOST=$(find_fastest_proxy "${CN_PROXIES[@]}")
-            [ -z "$PROXY_HOST" ] && PROXY_HOST="10.158.100.8"
-            echo -e "\033[32m$PROXY_HOST\033[0m"
-            ;;
+        1) region_name="EU"; fallback="10.158.100.2"; proxy_list=("${EU_PROXIES[@]}") ;;
+        2) region_name="NAM"; fallback="10.158.100.4"; proxy_list=("${NAM_PROXIES[@]}") ;;
+        3) region_name="APJ"; fallback="10.158.101.1"; proxy_list=("${APJ_PROXIES[@]}") ;;
+        4) region_name="India"; fallback="10.158.100.6"; proxy_list=("${IN_PROXIES[@]}") ;;
+        5) region_name="LAT"; fallback="10.158.100.5"; proxy_list=("${LAT_PROXIES[@]}") ;;
+        6) region_name="MEA"; fallback="10.158.100.110"; proxy_list=("${MEA_PROXIES[@]}") ;;
+        7) region_name="CN"; fallback="10.158.100.8"; proxy_list=("${CN_PROXIES[@]}") ;;
         *)
             echo -e "\033[33mInvalid choice. Defaulting to EU.\033[0m"
-            echo -n "Finding fastest EU proxy... "
-            PROXY_HOST=$(find_fastest_proxy "${EU_PROXIES[@]}")
-            [ -z "$PROXY_HOST" ] && PROXY_HOST="10.158.100.2"
-            echo -e "\033[32m$PROXY_HOST\033[0m"
+            region_name="EU"; fallback="10.158.100.2"; proxy_list=("${EU_PROXIES[@]}")
             ;;
     esac
 
-    # Last resort: if selected proxy is not reachable, fallback to Frankfurt
-    if ! ping -c 1 -W 1 "$PROXY_HOST" >/dev/null 2>&1; then
-        echo -e "\033[33m$PROXY_HOST not reachable, falling back to Frankfurt...\033[0m"
-        PROXY_HOST="10.158.100.2"
+    echo -n "Finding working ${region_name} proxies... "
+    local working_proxies
+    working_proxies=$(find_working_proxies "${proxy_list[@]}")
+
+    if [ -z "$working_proxies" ]; then
+        echo -e "\033[33mnone found, using fallback\033[0m"
+        PROXY_HOST="$fallback"
+    else
+        # Try each working proxy in order (fastest first)
+        local first=true
+        for proxy in $working_proxies; do
+            if $first; then
+                echo -e "\033[32m$proxy\033[0m"
+                first=false
+            else
+                echo -e "\033[33mTrying next proxy...\033[0m $proxy"
+            fi
+
+            PROXY_HOST="$proxy"
+
+            # Configure and test this proxy
+            PROXY_URL="http://${PROXY_HOST}:${PROXY_PORT}"
+            NO_PROXY="localhost,127.0.0.1,::1,.nokia.net,.nokia.com,.int.nokia.com,.nsn-net.net,.nsn-intra.net,.inside.nsn.com,.noklab.net,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+
+            echo "HTTP_PROXY=$PROXY_URL" | sudo tee /etc/proxy.conf > /dev/null
+            echo "HTTPS_PROXY=$PROXY_URL" | sudo tee -a /etc/proxy.conf > /dev/null
+            echo "NO_PROXY=$NO_PROXY" | sudo tee -a /etc/proxy.conf > /dev/null
+
+            yes y | sudo SUDO_USER=eda SUDO_UID=1000 SUDO_GID=1000 proxyman set > /dev/null 2>&1
+            eval "$(sudo /usr/local/bin/proxyman export)"
+
+            # Verify it actually works
+            if curl -fsSL --connect-timeout 5 https://github.com >/dev/null 2>&1; then
+                echo -e "\033[32mProxy configured: $PROXY_HOST\033[0m"
+                return 0
+            fi
+        done
+
+        # All proxies failed, try fallback
+        echo -e "\033[33mAll proxies failed, trying fallback...\033[0m"
+        PROXY_HOST="$fallback"
     fi
 
-    # Build proxy URL and NO_PROXY list
+    # Configure fallback proxy
     PROXY_URL="http://${PROXY_HOST}:${PROXY_PORT}"
     NO_PROXY="localhost,127.0.0.1,::1,.nokia.net,.nokia.com,.int.nokia.com,.nsn-net.net,.nsn-intra.net,.inside.nsn.com,.noklab.net,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
 
-    # Write proxy configuration
     echo "HTTP_PROXY=$PROXY_URL" | sudo tee /etc/proxy.conf > /dev/null
     echo "HTTPS_PROXY=$PROXY_URL" | sudo tee -a /etc/proxy.conf > /dev/null
     echo "NO_PROXY=$NO_PROXY" | sudo tee -a /etc/proxy.conf > /dev/null
 
-    # Configure system-wide proxy silently (answer 'y' to Docker restart prompt)
     yes y | sudo SUDO_USER=eda SUDO_UID=1000 SUDO_GID=1000 proxyman set > /dev/null 2>&1
     eval "$(sudo /usr/local/bin/proxyman export)"
 
