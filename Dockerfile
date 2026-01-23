@@ -1,5 +1,6 @@
 FROM debian:bookworm-slim
 
+# First apt step uses HTTP (works with ~/.docker/config.json proxy)
 RUN apt update -y && apt upgrade -y && \
     apt install -y --no-install-recommends \
     make \
@@ -32,12 +33,31 @@ COPY --chmod=755 ./oobe.sh /etc/oobe.sh
 COPY ./eda_icon.ico /usr/lib/wsl/eda_icon.ico
 COPY ./terminal-profile.json /usr/lib/wsl/terminal-profile.json
 
+# Copy shell config files for oobe.sh to install
+COPY --chmod=755 ./zsh/scripts/ /etc/zsh/scripts/
+COPY --chmod=644 ./zsh/completions/ /etc/zsh/completions/
+COPY --chmod=644 ./zsh/.zshrc /etc/zsh/.zshrc
+COPY --chmod=644 ./zsh/starship.toml /etc/zsh/starship.toml
+COPY --chmod=644 ./k9s/ /etc/k9s/
+
 # SSH config
 RUN bash -c "echo 'Port 2222' >> /etc/ssh/sshd_config"
 
 # Apply sysctl settings for inotify (needed for file watchers, IDEs, etc.)
 RUN mkdir -p /etc/sysctl.d && \
     echo -e "fs.inotify.max_user_watches=1048576\nfs.inotify.max_user_instances=512" > /etc/sysctl.d/90-wsl-inotify.conf
+
+# Configure system-wide proxy (needed for sudo commands during build)
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+RUN if [ -n "$HTTP_PROXY" ]; then \
+    printf 'Acquire::http::Proxy "%s";\n' "$HTTP_PROXY" > /etc/apt/apt.conf.d/proxy.conf && \
+    printf 'Acquire::https::Proxy "%s";\n' "$HTTPS_PROXY" >> /etc/apt/apt.conf.d/proxy.conf && \
+    printf 'export HTTP_PROXY="%s"\nexport HTTPS_PROXY="%s"\nexport NO_PROXY="%s"\nexport http_proxy="%s"\nexport https_proxy="%s"\nexport no_proxy="%s"\n' \
+        "$HTTP_PROXY" "$HTTPS_PROXY" "$NO_PROXY" "$HTTP_PROXY" "$HTTPS_PROXY" "$NO_PROXY" >> /etc/environment && \
+    echo 'Defaults env_keep += "HTTP_PROXY HTTPS_PROXY NO_PROXY http_proxy https_proxy no_proxy"' > /etc/sudoers.d/proxy; \
+    fi
 
 # Install Docker and clean up apt cache
 RUN curl -sL https://containerlab.dev/setup | bash -s "install-docker" && \
@@ -57,8 +77,8 @@ ENV USER=eda
 USER eda
 WORKDIR /home/eda
 
-# Install Starship prompt
-RUN curl -sS https://starship.rs/install.sh | sudo sh -s -- -y
+# Install Starship prompt (pass proxy via sudo -E to preserve environment)
+RUN curl -sS https://starship.rs/install.sh | sudo -E sh -s -- -y
 
 # Create SSH key
 RUN ssh-keygen -t ecdsa -b 256 -N "" -f ~/.ssh/id_ecdsa

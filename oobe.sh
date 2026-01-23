@@ -275,6 +275,36 @@ function install_fonts {
     echo -e "\033[32mNerd Fonts installed.\033[0m"
 }
 
+function install_shell_config {
+    echo -e "\033[34mInstalling shell configuration...\033[0m"
+
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    # Create directories
+    mkdir -p /home/eda/.local/bin
+    mkdir -p /home/eda/.zsh/completions
+    mkdir -p /home/eda/.config/k9s/skins
+
+    # Install scripts
+    cp "$SCRIPT_DIR/zsh/scripts/"* /home/eda/.local/bin/
+    chmod +x /home/eda/.local/bin/edactl /home/eda/.local/bin/node-shell /home/eda/.local/bin/node-ssh
+
+    # Install completions
+    cp "$SCRIPT_DIR/zsh/completions/"* /home/eda/.zsh/completions/
+
+    # Install k9s theme
+    cp "$SCRIPT_DIR/k9s/dracula.yaml" /home/eda/.config/k9s/skins/
+
+    # Install zshrc and starship config
+    cp "$SCRIPT_DIR/zsh/.zshrc" /home/eda/.zshrc
+    cp "$SCRIPT_DIR/zsh/starship.toml" /home/eda/.config/starship.toml
+
+    # Fix ownership
+    chown -R eda:eda /home/eda/.local /home/eda/.zsh /home/eda/.config /home/eda/.zshrc
+
+    echo -e "\033[32mShell configuration installed.\033[0m"
+}
+
 function import_ssh_keys {
     KEY_CHECK=$(powershell.exe -NoProfile -Command '
         $key_types = @("rsa", "ecdsa", "ed25519")
@@ -360,6 +390,9 @@ import_corporate_certs
 
 # Install fonts
 install_fonts
+
+# Install shell configuration (zsh, completions, scripts, k9s theme)
+install_shell_config
 
 # Import SSH keys
 import_ssh_keys

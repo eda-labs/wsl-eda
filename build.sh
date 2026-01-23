@@ -36,9 +36,13 @@ OLD_EXPORT_FILE_PATH="$EXPORT_FILE_PATH.old"
 echo "Attempting to remove previous container '$CONTAINER_NAME'..."
 docker rm "$CONTAINER_NAME" 2>/dev/null || true
 
-# Build the Docker image
+# Build the Docker image (pass proxy settings if set)
 echo "Building Docker image '$IMAGE_TAG'..."
-docker build . --tag "$IMAGE_TAG"
+BUILD_ARGS=""
+[ -n "$HTTP_PROXY" ] && BUILD_ARGS="$BUILD_ARGS --build-arg HTTP_PROXY=$HTTP_PROXY"
+[ -n "$HTTPS_PROXY" ] && BUILD_ARGS="$BUILD_ARGS --build-arg HTTPS_PROXY=$HTTPS_PROXY"
+[ -n "$NO_PROXY" ] && BUILD_ARGS="$BUILD_ARGS --build-arg NO_PROXY=$NO_PROXY"
+docker build $BUILD_ARGS . --tag "$IMAGE_TAG"
 if [ $? -ne 0 ]; then
     echo "Error: Docker build failed."
     exit 1
