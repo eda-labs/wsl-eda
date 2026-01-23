@@ -103,6 +103,12 @@ function select_proxy_region {
             ;;
     esac
 
+    # Last resort: if selected proxy is not reachable, fallback to Frankfurt
+    if ! ping -c 1 -W 1 "$PROXY_HOST" >/dev/null 2>&1; then
+        echo -e "\033[33m$PROXY_HOST not reachable, falling back to Frankfurt...\033[0m"
+        PROXY_HOST="10.158.100.2"
+    fi
+
     # Build proxy URL and NO_PROXY list
     PROXY_URL="http://${PROXY_HOST}:${PROXY_PORT}"
     NO_PROXY="localhost,127.0.0.1,::1,.nokia.net,.nokia.com,.int.nokia.com,.nsn-net.net,.nsn-intra.net,.inside.nsn.com,.noklab.net,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
